@@ -15,9 +15,9 @@ export default async function CounterPage() {
         lede="Who needs a touch, and where the work is sitting."
       />
       <section>
-        <h2 className="text-[11px] uppercase tracking-[0.16em] text-muted">Touches due</h2>
+        <h2 className="font-sign text-2xl tracking-[-0.03em]">Touches due</h2>
         {counter.touches.length === 0 ? (
-          <p className="mt-4 font-sign text-3xl">The counter is clear.</p>
+          <p className="mt-4 font-sign text-3xl tracking-[-0.03em]">The counter is clear.</p>
         ) : (
           <ul className="mt-3 divide-y divide-line border-y border-line">
             {counter.touches.map((touch) => (
@@ -69,13 +69,14 @@ function StageStrip({
 }) {
   return (
     <section>
-      <h2 className="text-[11px] uppercase tracking-[0.16em] text-muted">{title}</h2>
+      <h2 className="font-sign text-2xl tracking-[-0.03em]">{title}</h2>
       <ul className="mt-3 divide-y divide-line border-y border-line">
-        {rows.map((row) => (
+        {rows.map((row, index) => (
           <li key={row.id}>
-            <Link href={row.href} className="flex items-baseline justify-between gap-4 py-3 hover:text-lacquer">
-              <span>{row.name}</span>
-              <span className={`text-sm ${row.calm ? "text-steady" : "text-muted"}`}>{row.aside}</span>
+            <Link href={row.href} className="flex items-baseline gap-4 py-3 hover:text-lacquer">
+              <span className="w-6 font-mono text-xs text-muted">{String(index + 1).padStart(2, "0")}</span>
+              <span className="flex-1">{row.name}</span>
+              <span className={`font-mono text-xs ${row.calm ? "text-steady" : "text-muted"}`}>{row.aside}</span>
             </Link>
           </li>
         ))}

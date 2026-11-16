@@ -24,10 +24,10 @@ export default async function SequencePage({
 
   return (
     <div>
-      <Link href="/mail" className="text-[11px] uppercase tracking-[0.14em] text-muted hover:text-ink">
+      <Link href="/mail" className="text-sm text-muted hover:text-ink">
         Mail
       </Link>
-      <h1 className="mt-3 font-sign text-4xl tracking-tight sm:text-5xl">{sequence.name}</h1>
+      <h1 className="mt-3 font-sign text-4xl leading-[0.9] tracking-[-0.04em] sm:text-5xl">{sequence.name}</h1>
       <p className="mt-2 text-sm text-muted">
         {sequence.audience} · {sequence.status}
       </p>
@@ -35,11 +35,11 @@ export default async function SequencePage({
         <DeskGate locked={locked} notice={query.notice}>
           <ol className="space-y-4">
             {sequence.steps.map((step, index) => (
-              <li key={step.subject} className="border border-line bg-paper-2 p-4">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-muted">
+              <li key={step.subject} className="border-l-4 border-sign pl-4">
+                <p className="font-mono text-[11px] text-muted">
                   Step {index + 1} · day {step.day}
                 </p>
-                <p className="mt-2 font-sign text-2xl">{step.subject}</p>
+                <p className="mt-2 font-sign text-2xl tracking-[-0.03em]">{step.subject}</p>
                 <p className="mt-2 max-w-xl text-sm leading-6">{step.body}</p>
               </li>
             ))}

@@ -1,7 +1,7 @@
 import { addNote, completeNextAction, saveNextAction } from "@/lib/actions";
 import type { NextActionView, TimelineItem } from "@/lib/types";
 import { activityKicker } from "@/lib/db/queries";
-import { QuietMark, buttonClass, fieldClass, ghostClass, labelClass } from "@/components/ui";
+import { QuietMark, buttonClass, fieldClass, ghostClass, kickerClass, labelClass } from "@/components/ui";
 import Link from "next/link";
 
 export function RecordFrame({
@@ -21,9 +21,9 @@ export function RecordFrame({
 }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.16em] text-muted">{kicker}</p>
+      <p className={kickerClass}>{kicker}</p>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <h1 className="font-sign text-4xl tracking-tight sm:text-5xl">{title}</h1>
+        <h1 className="font-sign text-4xl leading-[0.9] tracking-[-0.04em] sm:text-5xl">{title}</h1>
         {quiet ? <QuietMark /> : null}
       </div>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-[16rem_minmax(0,1fr)_16rem]">
@@ -42,7 +42,7 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
         {items.length === 0 ? <li className="text-sm text-muted">Nothing has been written yet.</li> : null}
         {items.map((item) => (
           <li key={item.id}>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-muted">
+            <p className={kickerClass}>
               {activityKicker(item.kind)} · {item.when}
             </p>
             <p className="mt-1 text-sm leading-6">{item.body}</p>
@@ -78,11 +78,11 @@ export function NextPanel({
   hidden: Record<string, string>;
 }) {
   return (
-    <div className="border border-line bg-paper-2 p-4">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-muted">Next</p>
+    <div className="border-l-4 border-sign pl-4">
+      <p className={kickerClass}>Next</p>
       {action ? (
         <div className="mt-3">
-          <p className="font-sign text-2xl leading-tight">{action.text}</p>
+          <p className="font-sign text-2xl leading-tight tracking-[-0.03em]">{action.text}</p>
           <p className={`mt-2 text-sm ${action.overdue ? "text-lacquer" : "text-muted"}`}>
             {action.overdue ? "Overdue" : "Due"} {action.dueOn}
           </p>
@@ -94,7 +94,7 @@ export function NextPanel({
           </form>
         </div>
       ) : (
-        <p className="mt-3 font-sign text-2xl">Nothing scheduled.</p>
+        <p className="mt-3 font-sign text-2xl tracking-[-0.03em]">Nothing scheduled.</p>
       )}
       <form action={saveNextAction} className="mt-4 space-y-2 border-t border-line pt-4">
         {Object.entries(hidden).map(([name, value]) => (

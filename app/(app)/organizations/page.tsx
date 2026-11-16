@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createOrganization } from "@/lib/actions";
 import { listOrganizations } from "@/lib/db/queries";
 import { requireWorkspace } from "@/lib/session";
-import { EmptyLine, FilterChips, PageHeader, QuietMark, buttonClass, fieldClass } from "@/components/ui";
+import { EmptyLine, FilterChips, PageHeader, QuietMark, buttonClass, fieldClass, tableHeadClass } from "@/components/ui";
 
 export default async function OrganizationsPage({
   searchParams,
@@ -35,7 +35,7 @@ export default async function OrganizationsPage({
       ) : (
         <div className="overflow-x-auto border-y border-line">
           <table className="w-full min-w-[36rem] text-left text-sm">
-            <thead className="text-[11px] uppercase tracking-[0.14em] text-muted">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="py-3 font-normal">Name</th>
                 <th className="py-3 font-normal">Domain</th>

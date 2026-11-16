@@ -22,6 +22,8 @@ const desks = [
   { href: "/agents", label: "Agents" },
 ];
 
+const settings = [{ href: "/settings", label: "Settings" }];
+
 function NavLinks({
   items,
   pathname,
@@ -32,7 +34,7 @@ function NavLinks({
   locked?: boolean;
 }) {
   return (
-    <ul className="flex gap-1 md:block">
+    <ul className="flex">
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
@@ -40,12 +42,17 @@ function NavLinks({
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center justify-between gap-3 whitespace-nowrap px-2 py-2 text-[13px] uppercase tracking-[0.14em] ${
-                active ? "text-paper" : "text-sign-muted hover:text-paper"
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm ${
+                active ? "border-lacquer text-ink" : "border-transparent text-muted hover:text-ink"
               }`}
             >
               <span>{item.label}</span>
-              {locked ? <span className="text-[10px] tracking-[0.16em] text-lacquer">Desk</span> : null}
+              {locked ? (
+                <>
+                  <span className="sr-only">, locked</span>
+                  <span className="h-1.5 w-1.5 shrink-0 bg-lacquer" aria-hidden />
+                </>
+              ) : null}
             </Link>
           </li>
         );
@@ -67,56 +74,46 @@ export function Shell({
 }) {
   const pathname = usePathname();
   const locked = plan !== "desk";
+  const groups = [
+    { items: book, locked: false },
+    { items: boards, locked: false },
+    { items: desks, locked },
+    { items: settings, locked: false },
+  ];
 
   return (
-    <div className="flex h-dvh flex-col bg-paper md:flex-row">
-      <aside className="flex shrink-0 flex-col bg-sign text-paper md:h-full md:w-56">
-        <div className="flex items-end justify-between gap-4 px-4 py-4 md:block md:px-5 md:pt-7">
-          <div>
-            <Link href="/counter" className="font-sign text-3xl leading-none tracking-tight">
-              Daybook
-            </Link>
-            <p className="mt-2 max-w-40 truncate text-[11px] uppercase tracking-[0.18em] text-sign-muted">
-              {workspaceName}
-            </p>
+    <div className="flex h-dvh flex-col bg-paper">
+      <header className="shrink-0 border-b border-sign">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+          <Link href="/counter" className="font-sign text-[1.7rem] leading-none tracking-[-0.045em]">
+            Daybook
+          </Link>
+          <p className="max-w-40 truncate font-mono text-[11px] text-muted">{workspaceName}</p>
+          <div className="order-3 w-full sm:order-none sm:ml-auto sm:w-72">
+            <CommandPalette />
           </div>
-          <form action={logout} className="md:hidden">
-            <button type="submit" className="text-[11px] uppercase tracking-[0.14em] text-sign-muted">
-              Sign out
-            </button>
-          </form>
+          <div className="ml-auto flex items-center gap-3 sm:ml-0">
+            <Link href="/settings" className="border border-ink px-2 py-0.5 font-mono text-[11px]">
+              {plan === "desk" ? "Desk" : "Counter"}
+            </Link>
+            <p className="hidden max-w-32 truncate text-sm sm:block">{userName}</p>
+            <form action={logout}>
+              <button type="submit" className="text-sm text-muted hover:text-ink">
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
-        <nav className="flex gap-4 overflow-x-auto px-2 pb-3 md:block md:flex-1 md:overflow-visible md:px-3">
-          <p className="hidden px-2 pt-6 text-[10px] uppercase tracking-[0.18em] text-sign-muted md:block">Book</p>
-          <NavLinks items={book} pathname={pathname} />
-          <p className="hidden px-2 pt-5 text-[10px] uppercase tracking-[0.18em] text-sign-muted md:block">Boards</p>
-          <NavLinks items={boards} pathname={pathname} />
-          <p className="hidden px-2 pt-5 text-[10px] uppercase tracking-[0.18em] text-sign-muted md:block">Desks</p>
-          <NavLinks items={desks} pathname={pathname} locked={locked} />
-          <NavLinks items={[{ href: "/settings", label: "Settings" }]} pathname={pathname} />
+        <nav className="flex items-end overflow-x-auto px-2 sm:px-4">
+          {groups.map((group, index) => (
+            <div key={group.items[0]?.href} className="flex items-end">
+              {index > 0 ? <span className="mx-1 mb-3 h-3 w-px shrink-0 bg-line" /> : null}
+              <NavLinks items={group.items} pathname={pathname} locked={group.locked} />
+            </div>
+          ))}
         </nav>
-        <div className="mt-auto hidden px-4 pb-5 md:block">
-          <Link href="/settings" className="block border border-white/15 px-3 py-3 hover:border-white/40">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-sign-muted">Plan</p>
-            <p className="font-sign text-2xl leading-none">{plan === "desk" ? "Desk" : "Counter"}</p>
-          </Link>
-          <p className="mt-4 truncate text-sm">{userName}</p>
-          <form action={logout} className="mt-1">
-            <button type="submit" className="text-[11px] uppercase tracking-[0.14em] text-sign-muted hover:text-paper">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-6">
-          <CommandPalette />
-          <Link href="/settings" className="text-[11px] uppercase tracking-[0.14em] text-muted md:hidden">
-            {plan === "desk" ? "Desk" : "Counter"}
-          </Link>
-        </header>
-        <main className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8 sm:py-8">{children}</main>
-      </div>
+      </header>
+      <main className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8 sm:py-8">{children}</main>
     </div>
   );
 }

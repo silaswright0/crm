@@ -19,7 +19,7 @@ export default async function SettingsPage() {
           </button>
         </form>
         <section>
-          <h2 className="font-sign text-3xl">Plan</h2>
+          <h2 className="font-sign text-2xl tracking-[-0.03em]">Plan</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
             Local preview. This does not bill anyone. Counter keeps Mail and Agents locked. Desk lifts the lock so you can look at them.
           </p>
@@ -37,7 +37,7 @@ export default async function SettingsPage() {
           </div>
         </section>
         <section>
-          <h2 className="font-sign text-3xl">Members</h2>
+          <h2 className="font-sign text-2xl tracking-[-0.03em]">Members</h2>
           <p className="mt-3 text-sm">
             {user.name} <span className="text-muted">· Owner · {user.email}</span>
           </p>

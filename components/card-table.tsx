@@ -2,7 +2,7 @@ import Link from "next/link";
 import { moveCardFromForm } from "@/lib/actions";
 import { money } from "@/lib/format";
 import type { BoardCard, BoardStage, PipelineKind } from "@/lib/types";
-import { QuietMark, buttonClass, fieldClass } from "@/components/ui";
+import { QuietMark, buttonClass, fieldClass, tableHeadClass } from "@/components/ui";
 
 export function CardTable({
   kind,
@@ -14,13 +14,13 @@ export function CardTable({
   cards: BoardCard[];
 }) {
   if (cards.length === 0) {
-    return <p className="font-sign text-2xl">Nothing on this board yet.</p>;
+    return <p className="font-sign text-2xl tracking-[-0.03em]">Nothing on this board yet.</p>;
   }
 
   return (
     <div className="overflow-x-auto border-y border-line">
       <table className="w-full min-w-[40rem] text-left text-sm">
-        <thead className="text-[11px] uppercase tracking-[0.14em] text-muted">
+        <thead className={tableHeadClass}>
           <tr>
             <th className="py-3 font-normal">Card</th>
             <th className="py-3 font-normal">Who</th>

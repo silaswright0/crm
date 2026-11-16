@@ -90,21 +90,21 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full max-w-md items-center justify-between border border-line bg-paper px-3 py-2 text-left text-sm text-muted"
+        className="flex w-full items-center justify-between border border-line bg-paper px-3 py-2 text-left text-sm text-muted"
       >
         <span>Search the book</span>
-        <span className="text-[11px] uppercase tracking-[0.14em]">Ctrl K</span>
+        <span className="font-mono text-[11px]">Ctrl K</span>
       </button>
       {open ? (
-        <div className="fixed inset-0 z-40 bg-ink/40" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-40 bg-sign/50" onClick={() => setOpen(false)}>
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Search the book"
-            className="mx-auto mt-[12vh] w-[min(36rem,calc(100%-2rem))] border border-line bg-paper p-4 shadow-none"
+            className="mx-auto mt-[10vh] w-[min(40rem,calc(100%-2rem))] border-2 border-sign bg-paper p-5 shadow-[8px_8px_0_#102033]"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="font-sign text-3xl">The book</p>
+            <p className="font-sign text-4xl leading-none tracking-[-0.04em]">Search</p>
             <input
               ref={inputRef}
               value={query}
@@ -167,4 +167,4 @@ export function CommandPalette() {
   );
 }
 
-const labelLike = "text-[11px] uppercase tracking-[0.14em] text-muted";
+const labelLike = "font-mono text-[11px] text-muted";

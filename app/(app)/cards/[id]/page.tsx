@@ -51,7 +51,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
             </button>
           </form>
           {record.pipelineKind === "sales" ? (
-            <p className="font-sign text-3xl text-lacquer">{money(card.valueCents)}</p>
+            <p className="font-mono text-2xl text-lacquer">{money(card.valueCents)}</p>
           ) : null}
           <form action={moveCardFromForm} className="space-y-2">
             <input type="hidden" name="cardId" value={card.id} />

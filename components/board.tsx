@@ -42,7 +42,7 @@ export function Board({
           const stepCount = column.reduce((sum, card) => sum + card.checklistTotal, 0);
           return (
             <Column key={stage.id} stage={stage} count={column.length}>
-              <p className={`text-xs ${stage.kind === "won" || stage.kind === "done" ? "text-steady" : "text-muted"}`}>
+              <p className={`mt-2 font-mono text-xs ${stage.kind === "won" || stage.kind === "done" ? "text-steady" : "text-muted"}`}>
                 {kind === "sales" ? money(column.length ? total : 0) : stepCount ? `${doneCount} of ${stepCount}` : "—"}
               </p>
               <div className="mt-3 space-y-2">
@@ -94,11 +94,15 @@ function Column({
     <section
       id={stage.id}
       ref={setNodeRef}
-      className={`w-72 shrink-0 border bg-paper-2 p-3 ${isOver ? "border-lacquer" : "border-line"}`}
+      className={`w-72 shrink-0 p-1 ${isOver ? "bg-quiet" : ""}`}
     >
-      <header className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[11px] uppercase tracking-[0.16em]">{stage.name}</h2>
-        <span className="text-xs text-muted">{count}</span>
+      <header
+        className={`flex items-baseline justify-between gap-3 border-b-2 pb-2 ${
+          stage.kind === "won" || stage.kind === "done" ? "border-steady" : "border-ink"
+        }`}
+      >
+        <h2 className="font-sign text-lg tracking-[-0.03em]">{stage.name}</h2>
+        <span className="font-mono text-xs text-muted">{count}</span>
       </header>
       {children}
     </section>
@@ -120,16 +124,18 @@ function DealCard({ card, kind }: { card: BoardCard; kind: PipelineKind }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`border border-line p-3 ${card.quiet ? "bg-quiet" : "bg-paper"} ${isDragging ? "opacity-60" : ""}`}
+      className={`border border-line border-l-[3px] p-3 ${
+        card.quiet ? "border-l-quiet-ink bg-quiet" : "border-l-sign bg-paper"
+      } ${isDragging ? "opacity-60" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <Link href={`/cards/${card.id}`} className="font-sign text-xl leading-tight hover:text-lacquer">
+        <Link href={`/cards/${card.id}`} className="text-[15px] font-medium leading-snug hover:text-lacquer">
           {card.title}
         </Link>
         {card.quiet ? <QuietMark /> : null}
       </div>
       <p className="mt-2 text-sm">{who}</p>
-      <p className={`mt-3 text-sm ${kind === "sales" ? "text-lacquer" : "text-ink"}`}>{progress}</p>
+      <p className={`mt-3 font-mono text-sm ${kind === "sales" ? "text-lacquer" : "text-ink"}`}>{progress}</p>
       {card.nextText && !card.quiet ? <p className="mt-2 text-xs text-muted">{card.nextText}</p> : null}
     </article>
   );

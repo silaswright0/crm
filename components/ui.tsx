@@ -1,19 +1,24 @@
 import Link from "next/link";
 
 export const fieldClass =
-  "w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-lacquer";
+  "w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-ink";
 
-export const labelClass = "mb-1 block text-[11px] uppercase tracking-[0.14em] text-muted";
+export const labelClass = "mb-1.5 block font-mono text-[11px] text-muted";
+
+export const kickerClass = "font-mono text-[11px] text-muted";
+
+export const tableHeadClass = "font-mono text-[11px] font-normal text-muted";
 
 export const buttonClass =
-  "bg-lacquer px-3 py-2 text-sm text-paper transition-colors hover:bg-[#7c2d12] disabled:opacity-40";
+  "bg-lacquer px-3 py-2 text-sm font-medium text-paper transition-colors hover:bg-lacquer-deep disabled:opacity-40";
 
 export const ghostClass =
-  "border border-line bg-transparent px-3 py-2 text-sm text-ink transition-colors hover:border-ink disabled:opacity-40";
+  "border border-ink bg-transparent px-3 py-2 text-sm text-ink transition-colors hover:bg-ink hover:text-paper disabled:opacity-40";
 
 export function QuietMark() {
   return (
-    <span className="inline-flex shrink-0 items-center bg-quiet px-2 py-0.5 text-[11px] uppercase tracking-[0.14em] text-quiet-ink">
+    <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-quiet-ink">
+      <span className="h-1.5 w-1.5 bg-quiet-ink" aria-hidden />
       Quiet
     </span>
   );
@@ -29,12 +34,14 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="font-sign text-4xl tracking-tight text-ink sm:text-5xl">{title}</h1>
-        {lede ? <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{lede}</p> : null}
+    <div className="mb-8 border-b border-ink pb-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-sign text-[2.6rem] leading-[0.9] tracking-[-0.04em] text-ink">{title}</h1>
+          {lede ? <p className="mt-3 max-w-xl text-sm leading-6 text-muted">{lede}</p> : null}
+        </div>
+        {children}
       </div>
-      {children}
     </div>
   );
 }
@@ -60,7 +67,7 @@ export function FilterChips({
           <Link
             key={id}
             href={id === "all" ? base : `${base}?filter=${id}`}
-            className={`px-3 py-1.5 text-sm ${active ? "bg-ink text-paper" : "border border-line text-ink hover:border-ink"}`}
+            className={`px-3 py-1.5 text-sm ${active ? "bg-ink text-paper" : "border border-ink text-ink hover:bg-ink hover:text-paper"}`}
             aria-current={active ? "page" : undefined}
           >
             {label}
@@ -79,7 +86,7 @@ export function ViewToggle({
   view: "board" | "list";
 }) {
   return (
-    <div className="flex border border-line">
+    <div className="flex border border-ink">
       {(
         [
           ["board", "Board"],
@@ -100,5 +107,5 @@ export function ViewToggle({
 }
 
 export function EmptyLine({ children }: { children: React.ReactNode }) {
-  return <p className="font-sign text-2xl text-ink">{children}</p>;
+  return <p className="font-sign text-2xl tracking-[-0.03em] text-ink">{children}</p>;
 }

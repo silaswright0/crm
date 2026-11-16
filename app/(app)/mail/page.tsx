@@ -24,11 +24,11 @@ export default async function MailPage({
             <li key={sequence.slug}>
               <Link href={`/mail/${sequence.slug}`} className="grid gap-2 py-4 hover:text-lacquer sm:grid-cols-[1fr_auto_auto] sm:items-baseline">
                 <span>
-                  <span className="block font-sign text-3xl leading-none">{sequence.name}</span>
+                  <span className="block font-sign text-2xl leading-none tracking-[-0.03em]">{sequence.name}</span>
                   <span className="mt-2 block text-sm text-muted">{sequence.audience}</span>
                 </span>
                 <span className="text-sm text-muted">{sequence.steps.length} steps</span>
-                <span className="text-[11px] uppercase tracking-[0.14em] text-muted">{sequence.status}</span>
+                <span className="font-mono text-[11px] text-muted">{sequence.status}</span>
               </Link>
             </li>
           ))}

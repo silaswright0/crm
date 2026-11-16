@@ -1,19 +1,22 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-ink: #1c1915;
-  --color-paper: #f4efe6;
-  --color-paper-2: #ebe4d6;
-  --color-sign: #161513;
-  --color-sign-muted: #a39e94;
-  --color-muted: #8a847a;
-  --color-line: #d9d0c1;
-  --color-lacquer: #9a3412;
-  --color-steady: #1f6b4a;
-  --color-quiet: #f3e6c8;
-  --color-quiet-ink: #8a5a12;
-  --font-sans: var(--font-geist);
-  --font-sign: var(--font-fraunces);
+  --color-ink: #14202b;
+  --color-paper: #f2f6f8;
+  --color-paper-2: #e5eef3;
+  --color-sign: #102033;
+  --color-sign-muted: #8ea0b5;
+  --color-muted: #5d7084;
+  --color-line: #d5e0e8;
+  --color-lacquer: #0e7490;
+  --color-lacquer-deep: #155e75;
+  --color-steady: #047857;
+  --color-steady-wash: #e5f4ee;
+  --color-quiet: #e7eef6;
+  --color-quiet-ink: #3d5a80;
+  --font-sans: var(--font-public);
+  --font-sign: var(--font-bricolage);
+  --font-mono: var(--font-plex), ui-monospace, monospace;
 }
 
 html,
@@ -24,12 +27,12 @@ body {
 body {
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-geist), sans-serif;
+  font-family: var(--font-public), sans-serif;
 }
 
 ::selection {
-  background: #9a3412;
-  color: #f4efe6;
+  background: #102033;
+  color: #f2f6f8;
 }
 
 input,

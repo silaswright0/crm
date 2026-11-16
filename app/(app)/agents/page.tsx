@@ -29,8 +29,8 @@ export default async function AgentsPage({
       />
       <DeskGate locked={locked} notice={params.notice}>
         <section className="border border-line bg-paper-2 p-5">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Connection</p>
-          <p className="mt-3 break-all font-sign text-3xl leading-tight">{endpoint}</p>
+          <p className="font-mono text-[11px] text-muted">Connection</p>
+          <p className="mt-3 break-all font-mono text-sm leading-6">{endpoint}</p>
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
             This address is a shape, not a server. An assistant will one day act as the member who connected it, and only inside this workspace.
           </p>
@@ -63,7 +63,7 @@ export default async function AgentsPage({
           </div>
         </section>
         <section className="mt-8">
-          <h2 className="text-[11px] uppercase tracking-[0.16em] text-muted">Scopes</h2>
+          <h2 className="font-sign text-2xl tracking-[-0.03em]">Scopes</h2>
           <ul className="mt-3 divide-y divide-line border-y border-line">
             {agentScopes.map((scope) => (
               <li key={scope.id} className="grid gap-1 py-3 sm:grid-cols-[14rem_1fr]">
@@ -74,15 +74,15 @@ export default async function AgentsPage({
           </ul>
         </section>
         <section className="mt-8">
-          <h2 className="text-[11px] uppercase tracking-[0.16em] text-muted">Client config</h2>
-          <pre className="mt-3 overflow-x-auto bg-sign p-4 text-sm leading-6 text-paper">{config}</pre>
+          <h2 className="font-sign text-2xl tracking-[-0.03em]">Client config</h2>
+          <pre className="mt-3 overflow-x-auto bg-sign p-4 font-mono text-sm leading-6 text-paper">{config}</pre>
         </section>
         <section className="mt-8">
-          <h2 className="text-[11px] uppercase tracking-[0.16em] text-muted">Audit</h2>
+          <h2 className="font-sign text-2xl tracking-[-0.03em]">Audit</h2>
           <ul className="mt-3 divide-y divide-line border-y border-line">
             {sampleAudit.map((row) => (
               <li key={row.tool} className="grid gap-1 py-3 text-sm sm:grid-cols-[5rem_1fr_8rem_1fr] sm:items-baseline">
-                <span className="text-[11px] uppercase tracking-[0.14em] text-quiet-ink">{row.when}</span>
+                <span className="font-mono text-[11px] text-quiet-ink">{row.when}</span>
                 <span>{row.who}</span>
                 <span>{row.tool}</span>
                 <span className="text-muted">{row.result}</span>
