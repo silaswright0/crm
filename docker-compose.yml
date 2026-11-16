@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: busyns
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-busyns}
+      POSTGRES_DB: busyns
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U busyns -d busyns"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build: .
+    ports:
+      - "${WEB_BIND:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://busyns:${POSTGRES_PASSWORD:-busyns}@postgres:5432/busyns
+      AUTH_SECRET: ${AUTH_SECRET}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
