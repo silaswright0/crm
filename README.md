@@ -1,4 +1,4 @@
-# Daybook
+# MusterLog
 
 A shop-counter CRM. People and organizations sit on a Sales board and an Onboarding board. Each workspace only sees its own book.
 

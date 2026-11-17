@@ -1,4 +1,4 @@
-# Run Daybook on a DigitalOcean droplet
+# Run MusterLog on a DigitalOcean droplet
 
 A 2 GB Ubuntu droplet is enough for the app and Postgres together. Postgres stays on the same server. Later, a managed database is a swap of `DATABASE_URL`.
 

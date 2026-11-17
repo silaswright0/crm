@@ -11,6 +11,7 @@ import {
   stages,
 } from "@/lib/db/schema";
 import { asDate, formatWhen, isQuiet, todayISO } from "@/lib/format";
+import { isRecordId } from "@/lib/ids";
 import type {
   ActivityKind,
   BoardCard,
@@ -377,6 +378,7 @@ async function cardsFor(
 }
 
 export async function getPerson(workspaceId: string, id: string) {
+  if (!isRecordId(id)) return null;
   const [person] = await db
     .select()
     .from(people)
@@ -404,6 +406,7 @@ export async function getPerson(workspaceId: string, id: string) {
 }
 
 export async function getOrganization(workspaceId: string, id: string) {
+  if (!isRecordId(id)) return null;
   const [organization] = await db
     .select()
     .from(organizations)
@@ -428,6 +431,7 @@ export async function getOrganization(workspaceId: string, id: string) {
 }
 
 export async function getCard(workspaceId: string, id: string) {
+  if (!isRecordId(id)) return null;
   const [row] = await db
     .select({
       card: cards,

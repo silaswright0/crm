@@ -15,7 +15,7 @@ export default async function AgentsPage({
   const endpoint = `${(process.env.APP_URL ?? "https://your-host").replace(/\/$/, "")}/mcp`;
   const config = `{
   "mcpServers": {
-    "daybook": {
+    "musterlog": {
       "url": "${endpoint}"
     }
   }

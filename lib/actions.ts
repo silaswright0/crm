@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
+import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import {
@@ -20,12 +21,44 @@ import {
 } from "@/lib/db/schema";
 import { seedWorkspace } from "@/lib/db/seed";
 import { parseDollars, text, todayISO } from "@/lib/format";
+import { isRecordId } from "@/lib/ids";
 import { ONBOARDING_STEPS } from "@/lib/pipelines";
 import { requireWorkspace } from "@/lib/session";
 import type { Plan } from "@/lib/types";
 
 function refresh() {
   revalidatePath("/", "layout");
+}
+
+function idOf(value: FormDataEntryValue | null) {
+  const id = text(value);
+  return isRecordId(id) ? id : "";
+}
+
+function optionalId(value: FormDataEntryValue | null) {
+  const id = text(value);
+  if (!id) return null;
+  return isRecordId(id) ? id : undefined;
+}
+
+function isUniqueViolation(error: unknown) {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    if ("code" in current && current.code === "23505") return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+}
+
+async function enter(email: string, password: string, failure: string) {
+  try {
+    await signIn("credentials", { email, password, redirectTo: "/counter" });
+  } catch (error) {
+    if (!(error instanceof AuthError)) throw error;
+    redirect(failure);
+  }
 }
 
 export async function signup(formData: FormData) {
@@ -42,31 +75,35 @@ export async function signup(formData: FormData) {
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
   if (existing) redirect("/?mode=signup&error=taken");
 
-  await db.transaction(async (tx) => {
-    const [workspace] = await tx
-      .insert(workspaces)
-      .values({ name: workspaceName })
-      .returning({ id: workspaces.id });
-    if (!workspace) throw new Error("Could not open a workspace.");
+  try {
+    await db.transaction(async (tx) => {
+      const [workspace] = await tx
+        .insert(workspaces)
+        .values({ name: workspaceName })
+        .returning({ id: workspaces.id });
+      if (!workspace) throw new Error("Could not open a workspace.");
 
-    await tx.insert(users).values({
-      name,
-      email,
-      passwordHash: await bcrypt.hash(password, 10),
-      workspaceId: workspace.id,
+      await tx.insert(users).values({
+        name,
+        email,
+        passwordHash: await bcrypt.hash(password, 10),
+        workspaceId: workspace.id,
+      });
+      await seedWorkspace(tx, workspace.id);
     });
-    await seedWorkspace(tx, workspace.id);
-  });
+  } catch (error) {
+    if (isUniqueViolation(error)) redirect("/?mode=signup&error=taken");
+    throw error;
+  }
 
-  await signIn("credentials", { email, password, redirectTo: "/counter" });
+  await enter(email, password, "/?error=opened");
 }
 
 export async function login(formData: FormData) {
-  await signIn("credentials", {
-    email: text(formData.get("email")).toLowerCase(),
-    password: String(formData.get("password") ?? ""),
-    redirectTo: "/counter",
-  });
+  const email = text(formData.get("email")).toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect("/?error=CredentialsSignin");
+  await enter(email, password, "/?error=CredentialsSignin");
 }
 
 export async function logout() {
@@ -133,10 +170,11 @@ export async function createOrganization(formData: FormData) {
 
 export async function updatePerson(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = text(formData.get("id"));
+  const id = idOf(formData.get("id"));
   const name = text(formData.get("name"));
   if (!id || !name) return;
-  const organizationId = text(formData.get("organizationId"));
+  const organizationId = optionalId(formData.get("organizationId"));
+  if (organizationId === undefined) return;
 
   await db
     .update(people)
@@ -155,7 +193,7 @@ export async function updatePerson(formData: FormData) {
 
 export async function updateOrganization(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = text(formData.get("id"));
+  const id = idOf(formData.get("id"));
   const name = text(formData.get("name"));
   if (!id || !name) return;
 
@@ -235,7 +273,7 @@ async function findOrCreatePerson(workspaceId: string, name: string, organizatio
 
 export async function createCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const stageId = text(formData.get("stageId"));
+  const stageId = idOf(formData.get("stageId"));
   const organizationName = text(formData.get("organization"));
   const personName = text(formData.get("person"));
   if (!stageId || !organizationName) return;
@@ -292,6 +330,7 @@ export async function createCard(formData: FormData) {
 }
 
 export async function moveCard(cardId: string, stageId: string) {
+  if (!isRecordId(cardId) || !isRecordId(stageId)) return;
   const { workspace } = await requireWorkspace();
   const [card] = await db
     .select()
@@ -330,7 +369,7 @@ export async function moveCardFromForm(formData: FormData) {
 
 export async function updateCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = text(formData.get("id"));
+  const id = idOf(formData.get("id"));
   const title = text(formData.get("title"));
   if (!id || !title) return;
 
@@ -341,7 +380,8 @@ export async function updateCard(formData: FormData) {
     .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
   if (!card) return;
 
-  const personId = text(formData.get("personId"));
+  const personId = optionalId(formData.get("personId"));
+  if (personId === undefined) return;
   await db
     .update(cards)
     .set({
@@ -360,9 +400,10 @@ export async function addNote(formData: FormData) {
   const body = text(formData.get("body"));
   if (!body) return;
 
-  const cardId = text(formData.get("cardId"));
-  const personId = text(formData.get("personId"));
-  const organizationId = text(formData.get("organizationId"));
+  const cardId = optionalId(formData.get("cardId"));
+  const personId = optionalId(formData.get("personId"));
+  const organizationId = optionalId(formData.get("organizationId"));
+  if (cardId === undefined || personId === undefined || organizationId === undefined) return;
 
   let resolvedPerson = personId || null;
   let resolvedOrg = organizationId || null;
@@ -414,7 +455,8 @@ export async function saveNextAction(formData: FormData) {
   const dueOn = text(formData.get("dueOn")) || todayISO();
   if (!actionText) return;
 
-  const actionId = text(formData.get("actionId"));
+  const actionId = optionalId(formData.get("actionId"));
+  if (actionId === undefined) return;
   if (actionId) {
     await db
       .update(nextActions)
@@ -424,9 +466,10 @@ export async function saveNextAction(formData: FormData) {
     return;
   }
 
-  const cardId = text(formData.get("cardId"));
-  const personId = text(formData.get("personId"));
-  const organizationId = text(formData.get("organizationId"));
+  const cardId = optionalId(formData.get("cardId"));
+  const personId = optionalId(formData.get("personId"));
+  const organizationId = optionalId(formData.get("organizationId"));
+  if (cardId === undefined || personId === undefined || organizationId === undefined) return;
 
   if (cardId) {
     const [card] = await db
@@ -474,7 +517,7 @@ export async function saveNextAction(formData: FormData) {
 
 export async function completeNextAction(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const actionId = text(formData.get("actionId"));
+  const actionId = idOf(formData.get("actionId"));
   if (!actionId) return;
 
   const [action] = await db
@@ -497,7 +540,7 @@ export async function completeNextAction(formData: FormData) {
 
 export async function toggleChecklist(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const itemId = text(formData.get("itemId"));
+  const itemId = idOf(formData.get("itemId"));
   if (!itemId) return;
 
   const [item] = await db

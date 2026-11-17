@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -9,6 +9,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/" },
+  logger: {
+    error(error) {
+      if (error instanceof CredentialsSignin) return;
+      console.error(error);
+    },
+  },
   providers: [
     Credentials({
       credentials: {

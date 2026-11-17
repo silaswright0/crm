@@ -23,6 +23,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searchFailed, setSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,36 +46,53 @@ export function CommandPalette() {
     if (!open) return;
     const term = query.trim();
     if (!term) return;
+    let cancelled = false;
     const handle = window.setTimeout(async () => {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
-      if (!response.ok) return;
-      const data = (await response.json()) as {
-        people: { id: string; name: string; email: string | null }[];
-        organizations: { id: string; name: string; domain: string | null }[];
-        cards: { id: string; title: string; organizationName: string }[];
-      };
-      setHits([
-        ...data.people.map((person) => ({
-          id: person.id,
-          label: person.name,
-          meta: person.email || "Person",
-          href: `/people/${person.id}`,
-        })),
-        ...data.organizations.map((organization) => ({
-          id: organization.id,
-          label: organization.name,
-          meta: organization.domain || "Organization",
-          href: `/organizations/${organization.id}`,
-        })),
-        ...data.cards.map((card) => ({
-          id: card.id,
-          label: card.title,
-          meta: card.organizationName,
-          href: `/cards/${card.id}`,
-        })),
-      ]);
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+        if (cancelled) return;
+        if (!response.ok) {
+          setHits([]);
+          setSearchFailed(true);
+          return;
+        }
+        const data = (await response.json()) as {
+          people: { id: string; name: string; email: string | null }[];
+          organizations: { id: string; name: string; domain: string | null }[];
+          cards: { id: string; title: string; organizationName: string }[];
+        };
+        if (cancelled) return;
+        setSearchFailed(false);
+        setHits([
+          ...data.people.map((person) => ({
+            id: person.id,
+            label: person.name,
+            meta: person.email || "Person",
+            href: `/people/${person.id}`,
+          })),
+          ...data.organizations.map((organization) => ({
+            id: organization.id,
+            label: organization.name,
+            meta: organization.domain || "Organization",
+            href: `/organizations/${organization.id}`,
+          })),
+          ...data.cards.map((card) => ({
+            id: card.id,
+            label: card.title,
+            meta: card.organizationName,
+            href: `/cards/${card.id}`,
+          })),
+        ]);
+      } catch {
+        if (cancelled) return;
+        setHits([]);
+        setSearchFailed(true);
+      }
     }, 120);
-    return () => window.clearTimeout(handle);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [open, query]);
 
   function go(href: string) {
@@ -110,6 +128,7 @@ export function CommandPalette() {
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
+                setSearchFailed(false);
                 if (!event.target.value.trim()) setHits([]);
               }}
               placeholder="A person, a shop, a card"
@@ -127,6 +146,7 @@ export function CommandPalette() {
                   ))}
                 </ul>
               ) : null}
+              {searchFailed ? <p className="mt-2 text-sm text-muted">The book did not answer.</p> : null}
               {hits.length > 0 ? (
                 <ul className="mt-2 border-t border-line">
                   {hits.map((hit) => (

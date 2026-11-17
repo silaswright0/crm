@@ -9,6 +9,8 @@ const errors: Record<string, string> = {
   short: "Use at least 8 characters.",
   taken: "That email already keeps a book. Log in instead.",
   CredentialsSignin: "That email and password do not match a book.",
+  opened: "The book is open. Log in with that email.",
+  unavailable: "The book could not be opened. Try again.",
 };
 
 export default async function Home({
@@ -31,11 +33,11 @@ export default async function Home({
           <span>People, sales, onboarding</span>
         </div>
         <h1 className="mx-auto max-w-6xl px-6 pb-20 pt-6 font-sign text-[clamp(5rem,18vw,10.5rem)] leading-[0.76] tracking-[-0.06em] sm:px-10">
-          Daybook
+          MusterLog
         </h1>
       </section>
-      <section className="mx-auto grid max-w-6xl items-start gap-10 px-6 py-10 sm:px-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="max-w-md lg:pt-6">
+      <section className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-10 sm:px-10">
+        <div className="max-w-md">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">
             Keep the people you are selling, and the ones you just won.
           </p>
@@ -43,7 +45,7 @@ export default async function Home({
             A book for people and organizations, with a board for the sale and a board for what happens after the yes.
           </p>
         </div>
-        <div className="border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033] lg:-mt-28">
+        <div className="w-full max-w-sm border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033]">
           <div className="flex gap-5 text-sm">
             <Link href="/" className={mode === "login" ? "border-b-2 border-ink pb-0.5" : "text-muted"}>
               Log in
@@ -74,13 +76,6 @@ export default async function Home({
           )}
         </div>
       </section>
-      <footer className="mt-auto border-t border-ink">
-        <div className="mx-auto grid max-w-6xl grid-cols-3 px-6 py-4 font-mono text-[11px] text-muted sm:px-10">
-          <span>01 People</span>
-          <span>02 The sale</span>
-          <span>03 After the yes</span>
-        </div>
-      </footer>
     </main>
   );
 }

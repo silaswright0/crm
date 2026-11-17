@@ -19,7 +19,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Daybook",
+  title: "MusterLog",
   description: "Keep the people you are selling, and the ones you just won.",
 };
 

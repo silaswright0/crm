@@ -86,7 +86,7 @@ export function Shell({
       <header className="shrink-0 border-b border-sign">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <Link href="/counter" className="font-sign text-[1.7rem] leading-none tracking-[-0.045em]">
-            Daybook
+            MusterLog
           </Link>
           <p className="max-w-40 truncate font-mono text-[11px] text-muted">{workspaceName}</p>
           <div className="order-3 w-full sm:order-none sm:ml-auto sm:w-72">

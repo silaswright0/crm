@@ -28,7 +28,11 @@ export function Board({
     const cardId = String(event.active.id);
     const current = cards.find((card) => card.id === cardId);
     if (!stageId || !current || current.stageId === stageId) return;
-    await moveCard(cardId, stageId);
+    try {
+      await moveCard(cardId, stageId);
+    } catch {
+      // The board redraws from the server either way.
+    }
     router.refresh();
   }
 
