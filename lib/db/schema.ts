@@ -100,6 +100,7 @@ export const cards = pgTable("cards", {
     .references(() => organizations.id),
   personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
   title: text("title").notNull(),
+  comment: text("comment"),
   valueCents: integer("value_cents"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

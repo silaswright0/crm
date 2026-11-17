@@ -2,6 +2,7 @@ import Link from "next/link";
 import { moveCardFromForm } from "@/lib/actions";
 import { money } from "@/lib/format";
 import type { BoardCard, BoardStage, PipelineKind } from "@/lib/types";
+import { CardMenu } from "@/components/menus";
 import { QuietMark, buttonClass, fieldClass, tableHeadClass } from "@/components/ui";
 
 export function CardTable({
@@ -32,10 +33,15 @@ export function CardTable({
           {cards.map((card) => (
             <tr key={card.id} className={`border-t border-line ${card.quiet ? "bg-quiet" : ""}`}>
               <td className="py-3 pr-4">
-                <Link href={`/cards/${card.id}`} className="font-medium hover:text-lacquer">
-                  {card.title}
-                </Link>
-                {card.quiet ? <span className="ml-2"><QuietMark /></span> : null}
+                <div className="flex items-start gap-2">
+                  <CardMenu card={card} stages={stages} kind={kind} />
+                  <div>
+                    <Link href={`/cards/${card.id}#comments`} className="font-medium hover:text-lacquer">
+                      {card.title}
+                    </Link>
+                    {card.quiet ? <span className="ml-2"><QuietMark /></span> : null}
+                  </div>
+                </div>
               </td>
               <td className="py-3 pr-4">{card.personName ?? card.organizationName}</td>
               <td className={`py-3 pr-4 ${kind === "sales" ? "text-lacquer" : ""}`}>

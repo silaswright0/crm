@@ -23,6 +23,7 @@ const desks = [
 ];
 
 const settings = [{ href: "/settings", label: "Settings" }];
+const preview = [{ href: "/preview", label: "Preview" }];
 
 function NavLinks({
   items,
@@ -65,11 +66,13 @@ export function Shell({
   workspaceName,
   plan,
   userName,
+  showPreview = false,
   children,
 }: {
   workspaceName: string;
   plan: Plan;
   userName: string;
+  showPreview?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -79,6 +82,7 @@ export function Shell({
     { items: boards, locked: false },
     { items: desks, locked },
     { items: settings, locked: false },
+    ...(showPreview ? [{ items: preview, locked: false }] : []),
   ];
 
   return (
@@ -90,12 +94,18 @@ export function Shell({
           </Link>
           <p className="max-w-40 truncate font-mono text-[11px] text-muted">{workspaceName}</p>
           <div className="order-3 w-full sm:order-none sm:ml-auto sm:w-72">
-            <CommandPalette />
+            <CommandPalette showPreview={showPreview} />
           </div>
           <div className="ml-auto flex items-center gap-3 sm:ml-0">
-            <Link href="/settings" className="border border-ink px-2 py-0.5 font-mono text-[11px]">
-              {plan === "desk" ? "Desk" : "Counter"}
-            </Link>
+            {showPreview ? (
+              <Link href="/preview" className="border border-ink px-2 py-0.5 font-mono text-[11px]">
+                {plan === "desk" ? "Desk" : "Counter"}
+              </Link>
+            ) : (
+              <span className="border border-ink px-2 py-0.5 font-mono text-[11px]">
+                {plan === "desk" ? "Desk" : "Counter"}
+              </span>
+            )}
             <p className="hidden max-w-32 truncate text-sm sm:block">{userName}</p>
             <form action={logout}>
               <button type="submit" className="text-sm text-muted hover:text-ink">

@@ -27,7 +27,7 @@ APP_URL=https://crm.example.com
 POSTGRES_PASSWORD=$(openssl rand -base64 24)
 ```
 
-`DATABASE_URL` is set inside Compose and points at the `postgres` service. Do not put the database on the public internet. The published Postgres port is for a machine you control. On the droplet, remove the `ports` mapping under `postgres` in `docker-compose.yml` if you do not want `5432` reachable.
+`DATABASE_URL` is set inside Compose and points at the `postgres` service. Do not put the database on the public internet. With `APP_URL` set to the public site, `/preview` is not served. That page, including the plan switch, is only there when `APP_URL` is localhost: a local run, or a clone. The published Postgres port is for a machine you control. On the droplet, remove the `ports` mapping under `postgres` in `docker-compose.yml` if you do not want `5432` reachable.
 
 Build and start:
 
@@ -35,7 +35,15 @@ Build and start:
 docker compose up -d --build
 ```
 
-The web container applies `drizzle/0000_init.sql` on boot, then listens on port 3000.
+The web container applies the SQL files in `drizzle/` on boot, then listens on port 3000.
+
+`disk-guard` watches free space on the database disk. Container logs are capped at 30 MB each so the logs themselves do not fill the disk. When less than 1 GB is free, the guard stops the app, then asks Postgres to shut down. That shutdown still has room to finish its checkpoint. The containers stay stopped (`restart: unless-stopped` does not bring them back). Free some disk, then start again:
+
+```bash
+docker compose up -d
+```
+
+Set `DISK_FREE_MIN_BYTES` in `.env` to change the cutoff. The guard can stop containers on this machine. It is not published to the internet.
 
 ## 4. HTTPS with Caddy
 

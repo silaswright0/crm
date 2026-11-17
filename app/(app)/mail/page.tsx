@@ -16,7 +16,7 @@ export default async function MailPage({
     <div>
       <PageHeader
         title="Mail"
-        lede="Sequences for the book. They will send from this workspace’s own address later. Nothing sends now."
+        lede="Mail that leaves on its own, when a stage changes or a day arrives. It will send from this workspace’s own address later. Nothing sends now."
       />
       <DeskGate locked={workspace.plan !== "desk"} notice={params.notice}>
         <ul className="divide-y divide-line border-y border-line">

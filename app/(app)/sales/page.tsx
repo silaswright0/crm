@@ -2,12 +2,13 @@ import { getBoard } from "@/lib/db/queries";
 import { requireWorkspace } from "@/lib/session";
 import { Board } from "@/components/board";
 import { CardTable } from "@/components/card-table";
+import { ColumnNotice, ColumnShelf } from "@/components/columns";
 import { PageHeader, ViewToggle } from "@/components/ui";
 
 export default async function SalesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; column?: string }>;
 }) {
   const { workspace } = await requireWorkspace();
   const params = await searchParams;
@@ -19,8 +20,12 @@ export default async function SalesPage({
       <PageHeader title="Sales" lede="Move a card when the conversation moves.">
         <ViewToggle base="/sales" view={view} />
       </PageHeader>
+      <ColumnNotice column={params.column} />
       {view === "list" ? (
-        <CardTable kind="sales" stages={board.stages} cards={board.cards} />
+        <>
+          <ColumnShelf kind="sales" stages={board.stages} />
+          <CardTable kind="sales" stages={board.stages} cards={board.cards} />
+        </>
       ) : (
         <Board kind="sales" stages={board.stages} cards={board.cards} />
       )}

@@ -53,3 +53,9 @@ export function parseDollars(raw: string) {
 export function text(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isEmail(value: string) {
+  return EMAIL.test(value);
+}

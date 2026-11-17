@@ -1,6 +1,14 @@
+x-logging: &json-logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16
+    labels:
+      musterlog.role: postgres
     environment:
       POSTGRES_USER: busyns
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-busyns}
@@ -14,10 +22,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    stop_signal: SIGINT
+    stop_grace_period: 90s
+    logging: *json-logs
     restart: unless-stopped
 
   web:
     build: .
+    labels:
+      musterlog.role: web
     ports:
       - "${WEB_BIND:-3000}:3000"
     environment:
@@ -27,7 +40,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    stop_grace_period: 20s
+    logging: *json-logs
     restart: unless-stopped
+
+  disk-guard:
+    image: docker:27-cli
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/disk-guard.sh"]
+    environment:
+      THRESHOLD_BYTES: ${DISK_FREE_MIN_BYTES:-1073741824}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./deploy/disk-guard.sh:/disk-guard.sh:ro
+      - pgdata:/data:ro
+    logging: *json-logs
 
 volumes:
   pgdata:

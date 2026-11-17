@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPerson } from "@/lib/actions";
 import { listPeople } from "@/lib/db/queries";
 import { requireWorkspace } from "@/lib/session";
+import { formatWhen } from "@/lib/format";
 import { EmptyLine, FilterChips, PageHeader, QuietMark, buttonClass, fieldClass, tableHeadClass } from "@/components/ui";
 
 export default async function PeoplePage({
@@ -40,6 +41,7 @@ export default async function PeoplePage({
                 <th className="py-3 font-normal">Name</th>
                 <th className="py-3 font-normal">Organization</th>
                 <th className="py-3 font-normal">Email</th>
+                <th className="py-3 font-normal">Last touch</th>
                 <th className="py-3 font-normal"> </th>
               </tr>
             </thead>
@@ -54,6 +56,7 @@ export default async function PeoplePage({
                   </td>
                   <td className="py-3 pr-4">{person.organizationName ?? "—"}</td>
                   <td className="py-3 pr-4">{person.email ?? "—"}</td>
+                  <td className="py-3 pr-4">{person.lastTouch ? formatWhen(person.lastTouch) : "—"}</td>
                   <td className="py-3 text-right">{person.quiet ? <QuietMark /> : null}</td>
                 </tr>
               ))}

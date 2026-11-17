@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { login, signup } from "@/lib/actions";
+import { PublicNav } from "@/components/public-nav";
 import { buttonClass, fieldClass, labelClass } from "@/components/ui";
 
 const errors: Record<string, string> = {
-  missing: "Name, email, a password, and a workspace name.",
-  short: "Use at least 8 characters.",
+  missing: "Name, a password, and a workspace name.",
+  email: "Use an email address.",
   taken: "That email already keeps a book. Log in instead.",
   CredentialsSignin: "That email and password do not match a book.",
   opened: "The book is open. Log in with that email.",
@@ -28,9 +29,8 @@ export default async function Home({
   return (
     <main className="flex min-h-dvh flex-col bg-paper">
       <section className="overflow-hidden bg-sign text-paper">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-6 font-mono text-[11px] text-sign-muted sm:px-10">
-          <span>No. 01</span>
-          <span>People, sales, onboarding</span>
+        <div className="mx-auto flex max-w-6xl justify-end px-6 pt-6 sm:px-10">
+          <PublicNav />
         </div>
         <h1 className="mx-auto max-w-6xl px-6 pb-20 pt-6 font-sign text-[clamp(5rem,18vw,10.5rem)] leading-[0.76] tracking-[-0.06em] sm:px-10">
           MusterLog

@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { createCard, moveCard } from "@/lib/actions";
 import { money } from "@/lib/format";
 import type { BoardCard, BoardStage, PipelineKind } from "@/lib/types";
+import { AddColumn } from "@/components/columns";
+import { CardMenu, ColumnMenu } from "@/components/menus";
 import { QuietMark, buttonClass, fieldClass } from "@/components/ui";
 
 export function Board({
@@ -21,6 +23,7 @@ export function Board({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState<string | null>(null);
+  const dragged = useRef(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   async function onDragEnd(event: DragEndEvent) {
@@ -37,7 +40,21 @@ export function Board({
   }
 
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={() => {
+        dragged.current = true;
+      }}
+      onDragEnd={(event) => {
+        onDragEnd(event);
+        window.setTimeout(() => {
+          dragged.current = false;
+        }, 0);
+      }}
+      onDragCancel={() => {
+        dragged.current = false;
+      }}
+    >
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
           const column = cards.filter((card) => card.stageId === stage.id);
@@ -52,7 +69,7 @@ export function Board({
               <div className="mt-3 space-y-2">
                 {column.length === 0 ? <p className="text-sm text-muted">Nothing on this stage.</p> : null}
                 {column.map((card) => (
-                  <DealCard key={card.id} card={card} kind={kind} />
+                  <DealCard key={card.id} card={card} kind={kind} stages={stages} dragged={dragged} />
                 ))}
               </div>
               {adding === stage.id ? (
@@ -79,6 +96,7 @@ export function Board({
             </Column>
           );
         })}
+        <AddColumn kind={kind} view="board" />
       </div>
     </DndContext>
   );
@@ -101,11 +119,14 @@ function Column({
       className={`w-72 shrink-0 p-1 ${isOver ? "bg-quiet" : ""}`}
     >
       <header
-        className={`flex items-baseline justify-between gap-3 border-b-2 pb-2 ${
+        className={`flex items-start justify-between gap-3 border-b-2 pb-2 ${
           stage.kind === "won" || stage.kind === "done" ? "border-steady" : "border-ink"
         }`}
       >
-        <h2 className="font-sign text-lg tracking-[-0.03em]">{stage.name}</h2>
+        <div className="flex min-w-0 items-start gap-2">
+          <ColumnMenu stage={stage} view="board" />
+          <h2 className="font-sign text-lg tracking-[-0.03em]">{stage.name}</h2>
+        </div>
         <span className="font-mono text-xs text-muted">{count}</span>
       </header>
       {children}
@@ -113,7 +134,17 @@ function Column({
   );
 }
 
-function DealCard({ card, kind }: { card: BoardCard; kind: PipelineKind }) {
+function DealCard({
+  card,
+  kind,
+  stages,
+  dragged,
+}: {
+  card: BoardCard;
+  kind: PipelineKind;
+  stages: BoardStage[];
+  dragged: RefObject<boolean>;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   const who = card.personName ?? card.organizationName;
@@ -132,15 +163,24 @@ function DealCard({ card, kind }: { card: BoardCard; kind: PipelineKind }) {
         card.quiet ? "border-l-quiet-ink bg-quiet" : "border-l-sign bg-paper"
       } ${isDragging ? "opacity-60" : ""}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Link href={`/cards/${card.id}`} className="text-[15px] font-medium leading-snug hover:text-lacquer">
-          {card.title}
+      <div className="flex items-start gap-2">
+        <CardMenu card={card} stages={stages} kind={kind} />
+        <Link
+          href={`/cards/${card.id}#comments`}
+          onClick={(event) => {
+            if (dragged.current) event.preventDefault();
+          }}
+          className="block min-w-0 flex-1"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-[15px] font-medium leading-snug hover:text-lacquer">{card.title}</span>
+            {card.quiet ? <QuietMark /> : null}
+          </div>
+          <p className="mt-2 text-sm">{who}</p>
+          <p className={`mt-3 font-mono text-sm ${kind === "sales" ? "text-lacquer" : "text-ink"}`}>{progress}</p>
+          {card.nextText && !card.quiet ? <p className="mt-2 text-xs text-muted">{card.nextText}</p> : null}
         </Link>
-        {card.quiet ? <QuietMark /> : null}
       </div>
-      <p className="mt-2 text-sm">{who}</p>
-      <p className={`mt-3 font-mono text-sm ${kind === "sales" ? "text-lacquer" : "text-ink"}`}>{progress}</p>
-      {card.nextText && !card.quiet ? <p className="mt-2 text-xs text-muted">{card.nextText}</p> : null}
     </article>
   );
 }

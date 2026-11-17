@@ -3,7 +3,8 @@ import { updatePerson } from "@/lib/actions";
 import { getPerson } from "@/lib/db/queries";
 import { requireWorkspace } from "@/lib/session";
 import { NextPanel, NoteComposer, RecordFrame, RelatedLinks, Timeline } from "@/components/record";
-import { buttonClass, fieldClass, labelClass } from "@/components/ui";
+import { formatWhen } from "@/lib/format";
+import { buttonClass, fieldClass, kickerClass, labelClass } from "@/components/ui";
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { workspace } = await requireWorkspace();
@@ -20,6 +21,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       quiet={record.quiet}
       identity={
         <form action={updatePerson} className="space-y-3">
+          <p className={kickerClass}>
+            Last touch · {record.lastTouch ? formatWhen(record.lastTouch) : "none yet"}
+          </p>
           <input type="hidden" name="id" value={person.id} />
           <label className="block">
             <span className={labelClass}>Name</span>

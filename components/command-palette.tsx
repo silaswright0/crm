@@ -18,7 +18,7 @@ const jumps = [
   { href: "/settings", label: "Settings" },
 ];
 
-export function CommandPalette() {
+export function CommandPalette({ showPreview = false }: { showPreview?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -101,7 +101,9 @@ export function CommandPalette() {
     router.push(href);
   }
 
-  const shownJumps = jumps.filter((jump) => jump.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const shownJumps = (showPreview ? [...jumps, { href: "/preview", label: "Preview" }] : jumps).filter((jump) =>
+    jump.label.toLowerCase().includes(query.trim().toLowerCase()),
+  );
 
   return (
     <>

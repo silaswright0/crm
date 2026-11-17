@@ -86,6 +86,7 @@ export async function listPeople(workspaceId: string) {
     title: row.title,
     organizationName: row.organizationName,
     quiet: isQuiet(touches.get(row.id) ?? null, row.createdAt),
+    lastTouch: touches.get(row.id) ?? null,
     hasOpenCard: open.has(row.id),
   }));
 }
@@ -398,6 +399,7 @@ export async function getPerson(workspaceId: string, id: string) {
     person,
     organization,
     quiet: isQuiet(touches.get(person.id) ?? null, person.createdAt),
+    lastTouch: touches.get(person.id) ?? null,
     timeline: await timelineFor(workspaceId, "personId", id),
     next: await earliestAction(workspaceId, "personId", id),
     cards: await cardsFor(workspaceId, "personId", id),

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { moveCardFromForm, toggleChecklist, updateCard } from "@/lib/actions";
+import { moveCardFromForm, saveComment, toggleChecklist, updateCard } from "@/lib/actions";
 import { money } from "@/lib/format";
 import { getCard } from "@/lib/db/queries";
 import { requireWorkspace } from "@/lib/session";
-import { NextPanel, NoteComposer, RecordFrame, Timeline } from "@/components/record";
+import { NextPanel, RecordFrame, Timeline } from "@/components/record";
 import { buttonClass, fieldClass, ghostClass, labelClass } from "@/components/ui";
 
 export default async function CardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -98,8 +98,23 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
       }
       timeline={
         <>
+          <form id="comments" action={saveComment} className="mb-8 scroll-mt-8 space-y-2">
+            <label className={labelClass} htmlFor="comment">
+              Comments
+            </label>
+            <textarea
+              id="comment"
+              name="comment"
+              rows={14}
+              defaultValue={card.comment ?? ""}
+              placeholder="Notes on this card"
+              className={`${fieldClass} min-h-72 leading-6`}
+            />
+            <button type="submit" className={buttonClass}>
+              Save
+            </button>
+          </form>
           <Timeline items={record.timeline} />
-          <NoteComposer hidden={{ cardId: card.id }} />
         </>
       }
       next={<NextPanel action={record.next} hidden={{ cardId: card.id }} />}

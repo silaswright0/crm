@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
@@ -20,11 +20,12 @@ import {
   workspaces,
 } from "@/lib/db/schema";
 import { seedWorkspace } from "@/lib/db/seed";
-import { parseDollars, text, todayISO } from "@/lib/format";
+import { isEmail, parseDollars, text, todayISO } from "@/lib/format";
 import { isRecordId } from "@/lib/ids";
+import { isLocalRepo } from "@/lib/runtime";
 import { ONBOARDING_STEPS } from "@/lib/pipelines";
 import { requireWorkspace } from "@/lib/session";
-import type { Plan } from "@/lib/types";
+import type { PipelineKind, Plan } from "@/lib/types";
 
 function refresh() {
   revalidatePath("/", "layout");
@@ -41,15 +42,30 @@ function optionalId(value: FormDataEntryValue | null) {
   return isRecordId(id) ? id : undefined;
 }
 
-function isUniqueViolation(error: unknown) {
+function hasDbCode(error: unknown, code: string) {
   const seen = new Set<unknown>();
   let current = error;
   while (current && typeof current === "object" && !seen.has(current)) {
     seen.add(current);
-    if ("code" in current && current.code === "23505") return true;
+    if ("code" in current && current.code === code) return true;
     current = "cause" in current ? current.cause : undefined;
   }
   return false;
+}
+
+function isUniqueViolation(error: unknown) {
+  return hasDbCode(error, "23505");
+}
+
+function boardHref(kind: PipelineKind, view: string, column?: "full" | "last") {
+  const base = kind === "onboarding" ? "/onboarding" : "/sales";
+  const path = view === "list" ? `${base}?view=list` : base;
+  if (!column) return path;
+  return path.includes("?") ? `${path}&column=${column}` : `${path}?column=${column}`;
+}
+
+function boardKind(value: string): PipelineKind | null {
+  return value === "sales" || value === "onboarding" ? value : null;
 }
 
 async function enter(email: string, password: string, failure: string) {
@@ -67,10 +83,10 @@ export async function signup(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const workspaceName = text(formData.get("workspace"));
 
-  if (!name || !email || !workspaceName || !password) {
+  if (!name || !workspaceName || !password) {
     redirect("/?mode=signup&error=missing");
   }
-  if (password.length < 8) redirect("/?mode=signup&error=short");
+  if (!isEmail(email)) redirect("/?mode=signup&error=email");
 
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
   if (existing) redirect("/?mode=signup&error=taken");
@@ -102,7 +118,8 @@ export async function signup(formData: FormData) {
 export async function login(formData: FormData) {
   const email = text(formData.get("email")).toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) redirect("/?error=CredentialsSignin");
+  if (!isEmail(email)) redirect("/?error=email");
+  if (!password) redirect("/?error=CredentialsSignin");
   await enter(email, password, "/?error=CredentialsSignin");
 }
 
@@ -367,6 +384,166 @@ export async function moveCardFromForm(formData: FormData) {
   await moveCard(text(formData.get("cardId")), text(formData.get("stageId")));
 }
 
+export async function addStage(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const kind = boardKind(text(formData.get("kind")));
+  const view = text(formData.get("view"));
+  const name = text(formData.get("name")).slice(0, 40);
+  if (!kind) return;
+  if (!name) redirect(boardHref(kind, view));
+
+  const [pipeline] = await db
+    .select()
+    .from(pipelines)
+    .where(and(eq(pipelines.workspaceId, workspace.id), eq(pipelines.kind, kind)));
+  if (!pipeline) return;
+
+  const existing = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.pipelineId, pipeline.id))
+    .orderBy(asc(stages.position));
+  const closing = existing.find((stage) => stage.kind !== "open");
+  const position = closing ? closing.position : existing.length;
+
+  await db.transaction(async (tx) => {
+    const later = existing.filter((stage) => stage.position >= position).sort((a, b) => b.position - a.position);
+    for (const stage of later) {
+      await tx.update(stages).set({ position: stage.position + 1 }).where(eq(stages.id, stage.id));
+    }
+    await tx.insert(stages).values({
+      workspaceId: workspace.id,
+      pipelineId: pipeline.id,
+      name,
+      position,
+      kind: "open",
+    });
+  });
+
+  refresh();
+  redirect(boardHref(kind, view));
+}
+
+export async function deleteStage(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const stageId = idOf(formData.get("stageId"));
+  const view = text(formData.get("view"));
+  if (!stageId) return;
+
+  const [row] = await db
+    .select({ stage: stages, kind: pipelines.kind })
+    .from(stages)
+    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
+    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
+  if (!row) return;
+
+  const href = boardHref(row.kind, view);
+  const siblings = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.pipelineId, row.stage.pipelineId))
+    .orderBy(asc(stages.position));
+  if (siblings.length <= 1) redirect(boardHref(row.kind, view, "last"));
+
+  const [occupied] = await db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(eq(cards.stageId, row.stage.id))
+    .limit(1);
+  if (occupied) redirect(boardHref(row.kind, view, "full"));
+
+  const remaining = siblings.filter((stage) => stage.id !== row.stage.id);
+  try {
+    await db.transaction(async (tx) => {
+      await tx.delete(stages).where(and(eq(stages.id, row.stage.id), eq(stages.workspaceId, workspace.id)));
+      for (const [index, stage] of remaining.entries()) {
+        if (stage.position !== index) {
+          await tx.update(stages).set({ position: index }).where(eq(stages.id, stage.id));
+        }
+      }
+    });
+  } catch (error) {
+    if (hasDbCode(error, "23503")) redirect(boardHref(row.kind, view, "full"));
+    throw error;
+  }
+
+  refresh();
+  redirect(href);
+}
+
+export async function renameStage(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const stageId = idOf(formData.get("stageId"));
+  const view = text(formData.get("view"));
+  const name = text(formData.get("name")).slice(0, 40);
+  if (!stageId || !name) return;
+
+  const [row] = await db
+    .select({ stage: stages, kind: pipelines.kind })
+    .from(stages)
+    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
+    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
+  if (!row) return;
+
+  await db.update(stages).set({ name }).where(eq(stages.id, row.stage.id));
+  refresh();
+  redirect(boardHref(row.kind, view));
+}
+
+export async function editCard(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const id = idOf(formData.get("id"));
+  const title = text(formData.get("title")).slice(0, 120);
+  if (!id || !title) return;
+
+  const [card] = await db
+    .select({ card: cards, kind: pipelines.kind })
+    .from(cards)
+    .innerJoin(pipelines, eq(cards.pipelineId, pipelines.id))
+    .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
+  if (!card) return;
+
+  await db
+    .update(cards)
+    .set({
+      title,
+      valueCents: card.kind === "sales" ? parseDollars(text(formData.get("value"))) : card.card.valueCents,
+      updatedAt: new Date(),
+    })
+    .where(eq(cards.id, id));
+
+  refresh();
+}
+
+export async function saveComment(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const id = idOf(formData.get("id"));
+  if (!id) return;
+  const comment = String(formData.get("comment") ?? "").replace(/\r\n/g, "\n").trim();
+
+  const [card] = await db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
+  if (!card) return;
+
+  await db
+    .update(cards)
+    .set({ comment: comment || null, updatedAt: new Date() })
+    .where(eq(cards.id, id));
+
+  refresh();
+}
+
+export async function deleteCard(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const id = idOf(formData.get("id"));
+  if (!id) return;
+
+  await db.delete(cards).where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
+  refresh();
+}
+
 export async function updateCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
   const id = idOf(formData.get("id"));
@@ -573,6 +750,7 @@ export async function renameWorkspace(formData: FormData) {
 }
 
 export async function setPlan(formData: FormData) {
+  if (!isLocalRepo()) return;
   const { workspace } = await requireWorkspace();
   const plan = text(formData.get("plan"));
   if (plan !== "counter" && plan !== "desk") return;
