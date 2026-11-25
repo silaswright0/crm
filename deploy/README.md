@@ -68,7 +68,7 @@ sudo systemctl reload caddy
 
 Open `https://crm.example.com`, create a workspace, and sign in. The first book is already filled with a sample studio so the boards are not empty.
 
-Mail and Agents stay locked on the Counter plan. Settings has a local plan toggle for preview. It does not bill anyone, and it does not send mail or open an agent connection.
+Mail and Agents stay locked on the Free plan. Settings has a local plan toggle for preview. It takes no card, and it does not send mail or open an agent connection.
 
 ## Local development
 

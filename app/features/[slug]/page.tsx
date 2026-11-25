@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicNav, publicFeatures, type FeatureSlug } from "@/components/public-nav";
 import { buttonClass } from "@/components/ui";
-import { agentScopes, sequences } from "@/lib/placeholders";
+import { automationExamples, mcpTools } from "@/lib/desk";
 import { ONBOARDING_STEPS, PIPELINES } from "@/lib/pipelines";
 
 const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> = {
@@ -19,13 +19,13 @@ const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> =
   },
   automations: {
     title: "Automations",
-    lede: "Email that sends itself, when a stage changes or a day arrives.",
-    body: "Some notes go because a card moved: the first conversation, the day someone is won, a week of quiet. Others wait a set number of days and then follow. A timed series is only one kind. All of it leaves from the workspace’s own address.",
+    lede: "An email when a card reaches a stage, or when another system calls.",
+    body: "A rule is one letter. It can leave when a sales or onboarding card enters a stage, after a wait of a few days. Or it can leave when a webhook arrives, carrying the person to write to. Automations are a Pro feature. Free can look. Only Pro can save a rule.",
   },
   mcp: {
     title: "MCP",
-    lede: "An assistant that can read the book and move a card.",
-    body: "MusterLog speaks MCP. Point an assistant at this workspace and it can read the people, read the organizations, advance a card one stage, and leave a note in your name. It only sees this book.",
+    lede: "An assistant that can run this book, and no other.",
+    body: "MusterLog will speak MCP. The assistant can list and change people, organizations, cards, notes, and next steps. It cannot see another workspace, and it does not send the mail. MCP is a Pro feature. The door stays shut on Free.",
   },
 };
 
@@ -79,12 +79,6 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
   );
 }
 
-function whenLabel(audience: string) {
-  if (audience.startsWith("Quiet")) return `someone has been ${audience.toLowerCase()}`;
-  const stage = audience.split("·").at(-1)?.trim();
-  return stage ? `a card reaches ${stage}` : audience;
-}
-
 function Showcase({ slug }: { slug: FeatureSlug }) {
   if (slug === "sales" || slug === "onboarding") {
     const pipeline = PIPELINES.find((item) => item.kind === slug);
@@ -115,27 +109,35 @@ function Showcase({ slug }: { slug: FeatureSlug }) {
   if (slug === "automations") {
     return (
       <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-        {sequences.map((sequence) => (
-          <li key={sequence.slug} className="py-4">
-            <p className="font-sign text-2xl leading-none tracking-[-0.03em]">{sequence.name}</p>
-            <p className="mt-2 text-sm text-muted">When {whenLabel(sequence.audience)}</p>
-            <p className="mt-2 font-mono text-[11px] text-muted">
-              Then {sequence.steps.map((step) => `day ${step.day}`).join(", ")}
-            </p>
+        {automationExamples.map((example) => (
+          <li key={example.name} className="py-4">
+            <p className="font-sign text-2xl leading-none tracking-[-0.03em]">{example.name}</p>
+            <p className="mt-2 text-sm">{example.when}</p>
+            <p className="mt-1 text-sm text-muted">{example.then}</p>
           </li>
         ))}
       </ul>
     );
   }
 
+  const groups = [...new Set(mcpTools.map((tool) => tool.group))];
   return (
-    <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-      {agentScopes.map((scope) => (
-        <li key={scope.id} className="grid gap-1 py-3 sm:grid-cols-[14rem_1fr]">
-          <span>{scope.label}</span>
-          <span className="text-sm text-muted">{scope.detail}</span>
-        </li>
+    <div className="w-full max-w-xl">
+      {groups.map((group) => (
+        <section key={group} className="mt-6 first:mt-0">
+          <h2 className="font-mono text-[11px] text-muted">{group}</h2>
+          <ul className="mt-2 divide-y divide-line border-y border-line">
+            {mcpTools
+              .filter((tool) => tool.group === group)
+              .map((tool) => (
+                <li key={tool.name} className="grid gap-1 py-3 sm:grid-cols-[14rem_1fr]">
+                  <span className="font-mono text-sm">{tool.name}</span>
+                  <span className="text-sm text-muted">{tool.detail}</span>
+                </li>
+              ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }

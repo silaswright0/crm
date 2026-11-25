@@ -8,18 +8,19 @@ import { CommandPalette } from "@/components/command-palette";
 
 const book = [
   { href: "/counter", label: "The Counter" },
-  { href: "/people", label: "People" },
-  { href: "/organizations", label: "Organizations" },
-];
-
-const boards = [
   { href: "/sales", label: "Sales" },
   { href: "/onboarding", label: "Onboarding" },
 ];
 
+const boards = [
+  { href: "/people", label: "People" },
+  { href: "/organizations", label: "Organizations" },
+];
+
 const desks = [
   { href: "/mail", label: "Mail" },
-  { href: "/agents", label: "Agents" },
+  { href: "/automations", label: "Automations" },
+  { href: "/mcp", label: "MCP" },
 ];
 
 const settings = [{ href: "/settings", label: "Settings" }];
@@ -76,7 +77,7 @@ export function Shell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const locked = plan !== "desk";
+  const locked = plan !== "pro";
   const groups = [
     { items: book, locked: false },
     { items: boards, locked: false },
@@ -96,19 +97,10 @@ export function Shell({
           <div className="order-3 w-full sm:order-none sm:ml-auto sm:w-72">
             <CommandPalette showPreview={showPreview} />
           </div>
-          <div className="ml-auto flex items-center gap-3 sm:ml-0">
-            {showPreview ? (
-              <Link href="/preview" className="border border-ink px-2 py-0.5 font-mono text-[11px]">
-                {plan === "desk" ? "Desk" : "Counter"}
-              </Link>
-            ) : (
-              <span className="border border-ink px-2 py-0.5 font-mono text-[11px]">
-                {plan === "desk" ? "Desk" : "Counter"}
-              </span>
-            )}
-            <p className="hidden max-w-32 truncate text-sm sm:block">{userName}</p>
-            <form action={logout}>
-              <button type="submit" className="text-sm text-muted hover:text-ink">
+          <div className="ml-auto flex items-center gap-4 sm:ml-0">
+            <p className="hidden max-w-40 truncate text-sm leading-none sm:block">{userName}</p>
+            <form action={logout} className="flex items-center">
+              <button type="submit" className="p-0 text-sm leading-none text-muted hover:text-ink">
                 Sign out
               </button>
             </form>

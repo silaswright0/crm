@@ -37,6 +37,11 @@ services:
       DATABASE_URL: postgres://busyns:${POSTGRES_PASSWORD:-busyns}@postgres:5432/busyns
       AUTH_SECRET: ${AUTH_SECRET}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       postgres:
         condition: service_healthy

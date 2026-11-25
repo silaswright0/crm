@@ -9,12 +9,13 @@ type SearchHit = { id: string; label: string; meta: string; href: string };
 
 const jumps = [
   { href: "/counter", label: "The Counter" },
-  { href: "/people", label: "People" },
-  { href: "/organizations", label: "Organizations" },
   { href: "/sales", label: "Sales" },
   { href: "/onboarding", label: "Onboarding" },
+  { href: "/people", label: "People" },
+  { href: "/organizations", label: "Organizations" },
   { href: "/mail", label: "Mail" },
-  { href: "/agents", label: "Agents" },
+  { href: "/automations", label: "Automations" },
+  { href: "/mcp", label: "MCP" },
   { href: "/settings", label: "Settings" },
 ];
 

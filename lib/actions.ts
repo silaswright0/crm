@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -9,8 +10,11 @@ import { signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import {
   activities,
+  automations,
   cards,
+  messages,
   checklistItems,
+  mailAccounts,
   nextActions,
   organizations,
   people,
@@ -21,6 +25,7 @@ import {
 } from "@/lib/db/schema";
 import { seedWorkspace } from "@/lib/db/seed";
 import { isEmail, parseDollars, text, todayISO } from "@/lib/format";
+import { deliverMail, mailDeliveryFor } from "@/lib/mail";
 import { isRecordId } from "@/lib/ids";
 import { isLocalRepo } from "@/lib/runtime";
 import { ONBOARDING_STEPS } from "@/lib/pipelines";
@@ -741,6 +746,162 @@ export async function toggleChecklist(formData: FormData) {
   refresh();
 }
 
+function delayDays(value: FormDataEntryValue | null) {
+  const parsed = Number.parseInt(text(value), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, 90);
+}
+
+async function proWorkspace() {
+  const session = await requireWorkspace();
+  if (session.workspace.plan !== "pro") return null;
+  return session;
+}
+
+function mailFrom(raw: string) {
+  const angle = raw.match(/<([^>]+)>/);
+  const email = (angle?.[1] ?? raw).trim();
+  if (!isEmail(email)) return null;
+  return raw.trim();
+}
+
+export async function saveMailAccount(formData: FormData) {
+  const session = await proWorkspace();
+  if (!session) return;
+  const host = text(formData.get("host"));
+  const fromAddress = mailFrom(text(formData.get("fromAddress")));
+  const username = text(formData.get("username"));
+  const password = String(formData.get("password") ?? "");
+  const port = Number.parseInt(text(formData.get("port")), 10);
+  if (!host || !fromAddress || !Number.isInteger(port) || port < 1 || port > 65535) return;
+
+  const [existing] = await db
+    .select({ password: mailAccounts.password })
+    .from(mailAccounts)
+    .where(eq(mailAccounts.workspaceId, session.workspace.id));
+
+  await db
+    .insert(mailAccounts)
+    .values({
+      workspaceId: session.workspace.id,
+      host,
+      port,
+      username: username || null,
+      password: password || existing?.password || "",
+      fromAddress,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: mailAccounts.workspaceId,
+      set: {
+        host,
+        port,
+        username: username || null,
+        password: password || existing?.password || "",
+        fromAddress,
+        updatedAt: new Date(),
+      },
+    });
+  refresh();
+  redirect("/mail");
+}
+
+export async function sendMail(formData: FormData) {
+  const session = await proWorkspace();
+  if (!session) return;
+  const to = text(formData.get("to")).toLowerCase();
+  const subject = text(formData.get("subject"));
+  const body = text(formData.get("body"));
+  if (!isEmail(to) || !subject || !body) return;
+
+  const account = await mailDeliveryFor(session.workspace.id);
+  if (!account) redirect("/mail");
+
+  let delivered = false;
+  try {
+    delivered = await deliverMail(session.workspace.id, { to, subject, text: body });
+  } catch {
+    delivered = false;
+  }
+  if (!delivered) redirect("/mail?box=write&error=host");
+
+  const [person] = await db
+    .select({ id: people.id })
+    .from(people)
+    .where(and(eq(people.workspaceId, session.workspace.id), sql`lower(${people.email}) = ${to}`));
+
+  await db.insert(messages).values({
+    workspaceId: session.workspace.id,
+    direction: "out",
+    fromAddress: account.fromAddress,
+    toAddress: to,
+    subject,
+    body,
+    personId: person?.id ?? null,
+    delivered: true,
+  });
+  refresh();
+  redirect("/mail?box=sent");
+}
+
+export async function createStageAutomation(formData: FormData) {
+  const session = await proWorkspace();
+  if (!session) return;
+  const name = text(formData.get("name"));
+  const subject = text(formData.get("subject"));
+  const body = text(formData.get("body"));
+  const stageId = idOf(formData.get("stageId"));
+  if (!name || !subject || !body || !stageId) return;
+
+  const [stage] = await db
+    .select({ id: stages.id })
+    .from(stages)
+    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, session.workspace.id)));
+  if (!stage) return;
+
+  await db.insert(automations).values({
+    workspaceId: session.workspace.id,
+    name,
+    triggerKind: "stage",
+    stageId,
+    delayDays: delayDays(formData.get("delayDays")),
+    subject,
+    body,
+  });
+  refresh();
+}
+
+export async function createWebhookAutomation(formData: FormData) {
+  const session = await proWorkspace();
+  if (!session) return;
+  const name = text(formData.get("name"));
+  const subject = text(formData.get("subject"));
+  const body = text(formData.get("body"));
+  if (!name || !subject || !body) return;
+
+  await db.insert(automations).values({
+    workspaceId: session.workspace.id,
+    name,
+    triggerKind: "webhook",
+    delayDays: delayDays(formData.get("delayDays")),
+    subject,
+    body,
+    webhookToken: randomBytes(16).toString("hex"),
+  });
+  refresh();
+}
+
+export async function deleteAutomation(formData: FormData) {
+  const session = await proWorkspace();
+  if (!session) return;
+  const id = idOf(formData.get("id"));
+  if (!id) return;
+  await db
+    .delete(automations)
+    .where(and(eq(automations.id, id), eq(automations.workspaceId, session.workspace.id)));
+  refresh();
+}
+
 export async function renameWorkspace(formData: FormData) {
   const { workspace } = await requireWorkspace();
   const name = text(formData.get("name"));
@@ -753,7 +914,7 @@ export async function setPlan(formData: FormData) {
   if (!isLocalRepo()) return;
   const { workspace } = await requireWorkspace();
   const plan = text(formData.get("plan"));
-  if (plan !== "counter" && plan !== "desk") return;
+  if (plan !== "free" && plan !== "pro") return;
   await db
     .update(workspaces)
     .set({ plan: plan as Plan })
@@ -763,7 +924,7 @@ export async function setPlan(formData: FormData) {
 
 export async function holdPlaceholder(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  if (workspace.plan !== "desk") return;
+  if (workspace.plan !== "pro") return;
   const to = text(formData.get("to"));
   if (to !== "/mail" && to !== "/agents" && !to.startsWith("/mail/")) return;
   redirect(`${to}?notice=held`);

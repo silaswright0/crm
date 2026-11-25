@@ -2,15 +2,18 @@ import { and, asc, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   activities,
+  automations,
   cards,
+  messages,
   checklistItems,
+  mailAccounts,
   nextActions,
   organizations,
   people,
   pipelines,
   stages,
 } from "@/lib/db/schema";
-import { asDate, formatWhen, isQuiet, todayISO } from "@/lib/format";
+import { asDate, emailAddress, formatWhen, isQuietAfter, latestStamp, todayISO } from "@/lib/format";
 import { isRecordId } from "@/lib/ids";
 import type {
   ActivityKind,
@@ -46,6 +49,42 @@ async function touchMap(
   return map;
 }
 
+async function mailTouchMap(workspaceId: string) {
+  const rows = await db
+    .select({
+      direction: messages.direction,
+      fromAddress: messages.fromAddress,
+      toAddress: messages.toAddress,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.workspaceId, workspaceId),
+        or(and(eq(messages.direction, "out"), eq(messages.delivered, true)), eq(messages.direction, "in")),
+      ),
+    );
+
+  const map = new Map<string, Date>();
+  for (const row of rows) {
+    const email = emailAddress(row.direction === "in" ? row.fromAddress : row.toAddress);
+    const stamp = asDate(row.createdAt);
+    if (!email || !stamp) continue;
+    const prev = map.get(email);
+    if (!prev || stamp.getTime() > prev.getTime()) map.set(email, stamp);
+  }
+  return map;
+}
+
+function letterStamp(mail: Map<string, Date>, email: string | null | undefined) {
+  const key = emailAddress(email);
+  return key ? (mail.get(key) ?? null) : null;
+}
+
+function newestLetter(mail: Map<string, Date>, emails: Array<string | null | undefined>) {
+  return latestStamp(...emails.map((email) => letterStamp(mail, email)));
+}
+
 function toNext(row: { id: string; text: string; dueOn: string } | undefined): NextActionView | null {
   if (!row) return null;
   return {
@@ -64,7 +103,7 @@ export async function listPeople(workspaceId: string) {
       email: people.email,
       title: people.title,
       organizationName: organizations.name,
-      createdAt: people.createdAt,
+      updatedAt: people.updatedAt,
     })
     .from(people)
     .leftJoin(organizations, eq(people.organizationId, organizations.id))
@@ -72,6 +111,7 @@ export async function listPeople(workspaceId: string) {
     .orderBy(asc(people.name));
 
   const touches = await touchMap(workspaceId, "personId");
+  const mail = await mailTouchMap(workspaceId);
   const openRows = await db
     .select({ personId: cards.personId })
     .from(cards)
@@ -79,16 +119,20 @@ export async function listPeople(workspaceId: string) {
     .where(and(eq(cards.workspaceId, workspaceId), eq(stages.kind, "open"), isNotNull(cards.personId)));
   const open = new Set(openRows.map((row) => row.personId).filter((id): id is string => Boolean(id)));
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    title: row.title,
-    organizationName: row.organizationName,
-    quiet: isQuiet(touches.get(row.id) ?? null, row.createdAt),
-    lastTouch: touches.get(row.id) ?? null,
-    hasOpenCard: open.has(row.id),
-  }));
+  return rows.map((row) => {
+    const letter = letterStamp(mail, row.email);
+    const activity = touches.get(row.id) ?? null;
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      title: row.title,
+      organizationName: row.organizationName,
+      quiet: isQuietAfter([row.updatedAt, letter]),
+      lastTouch: latestStamp(activity, letter),
+      hasOpenCard: open.has(row.id),
+    };
+  });
 }
 
 export async function listOrganizations(workspaceId: string) {
@@ -98,7 +142,18 @@ export async function listOrganizations(workspaceId: string) {
     .where(eq(organizations.workspaceId, workspaceId))
     .orderBy(asc(organizations.name));
 
-  const touches = await touchMap(workspaceId, "organizationId");
+  const mail = await mailTouchMap(workspaceId);
+  const memberMails = await db
+    .select({ organizationId: people.organizationId, email: people.email })
+    .from(people)
+    .where(and(eq(people.workspaceId, workspaceId), isNotNull(people.organizationId), isNotNull(people.email)));
+  const emailsByOrg = new Map<string, string[]>();
+  for (const member of memberMails) {
+    if (!member.organizationId || !member.email) continue;
+    const list = emailsByOrg.get(member.organizationId) ?? [];
+    list.push(member.email);
+    emailsByOrg.set(member.organizationId, list);
+  }
   const openRows = await db
     .select({ organizationId: cards.organizationId })
     .from(cards)
@@ -121,9 +176,64 @@ export async function listOrganizations(workspaceId: string) {
     domain: row.domain,
     industry: row.industry,
     peopleCount: peopleCount.get(row.id) ?? 0,
-    quiet: isQuiet(touches.get(row.id) ?? null, row.createdAt),
+    quiet: isQuietAfter([row.updatedAt, newestLetter(mail, emailsByOrg.get(row.id) ?? [])]),
     hasOpenCard: open.has(row.id),
   }));
+}
+
+export async function getMailAccount(workspaceId: string) {
+  const [row] = await db
+    .select({
+      host: mailAccounts.host,
+      port: mailAccounts.port,
+      username: mailAccounts.username,
+      fromAddress: mailAccounts.fromAddress,
+      hasPassword: sql<boolean>`${mailAccounts.password} <> ''`,
+    })
+    .from(mailAccounts)
+    .where(eq(mailAccounts.workspaceId, workspaceId));
+  return row ?? null;
+}
+
+export async function listMessages(workspaceId: string, direction: "in" | "out") {
+  return db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.workspaceId, workspaceId), eq(messages.direction, direction)))
+    .orderBy(desc(messages.createdAt));
+}
+
+export async function listAutomationStages(workspaceId: string) {
+  return db
+    .select({
+      id: stages.id,
+      name: stages.name,
+      pipelineName: pipelines.name,
+    })
+    .from(stages)
+    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
+    .where(eq(stages.workspaceId, workspaceId))
+    .orderBy(asc(pipelines.kind), asc(stages.position));
+}
+
+export async function listAutomations(workspaceId: string) {
+  return db
+    .select({
+      id: automations.id,
+      name: automations.name,
+      triggerKind: automations.triggerKind,
+      stageName: stages.name,
+      pipelineName: pipelines.name,
+      delayDays: automations.delayDays,
+      subject: automations.subject,
+      body: automations.body,
+      webhookToken: automations.webhookToken,
+    })
+    .from(automations)
+    .leftJoin(stages, eq(automations.stageId, stages.id))
+    .leftJoin(pipelines, eq(stages.pipelineId, pipelines.id))
+    .where(eq(automations.workspaceId, workspaceId))
+    .orderBy(asc(automations.createdAt));
 }
 
 export async function getBoard(workspaceId: string, kind: PipelineKind) {
@@ -149,15 +259,16 @@ export async function getBoard(workspaceId: string, kind: PipelineKind) {
       stageId: cards.stageId,
       organizationName: organizations.name,
       personName: people.name,
+      personEmail: people.email,
       valueCents: cards.valueCents,
-      createdAt: cards.createdAt,
+      updatedAt: cards.updatedAt,
     })
     .from(cards)
     .innerJoin(organizations, eq(cards.organizationId, organizations.id))
     .leftJoin(people, eq(cards.personId, people.id))
     .where(eq(cards.pipelineId, pipeline.id));
 
-  const touches = await touchMap(workspaceId, "cardId");
+  const mail = await mailTouchMap(workspaceId);
   const checks = await db
     .select({
       cardId: checklistItems.cardId,
@@ -196,7 +307,7 @@ export async function getBoard(workspaceId: string, kind: PipelineKind) {
       organizationName: card.organizationName,
       personName: card.personName,
       valueCents: card.valueCents,
-      quiet: isQuiet(touches.get(card.id) ?? null, card.createdAt),
+      quiet: isQuietAfter([card.updatedAt, letterStamp(mail, card.personEmail)]),
       checklistDone: check?.done ?? 0,
       checklistTotal: check?.total ?? 0,
       nextText: nextByCard.get(card.id) ?? null,
@@ -234,11 +345,10 @@ export async function getCounter(workspaceId: string) {
     )
     .orderBy(asc(nextActions.dueOn));
 
-  const seen = new Set<string>();
-  const quietCards = new Map(
-    [...boardSales.cards, ...boardOnboarding.cards].filter((card) => card.quiet).map((card) => [card.id, card]),
+  const quietIds = new Set(
+    [...boardSales.cards, ...boardOnboarding.cards].filter((card) => card.quiet).map((card) => card.id),
   );
-  const touches: { href: string; title: string; detail: string; tone: "due" | "quiet" }[] = [];
+  const dueSteps: { href: string; title: string; detail: string; tone: "due" | "quiet" }[] = [];
 
   for (const action of due) {
     const href = action.cardId
@@ -249,51 +359,44 @@ export async function getCounter(workspaceId: string) {
           ? `/organizations/${action.organizationId}`
           : "/counter";
     const title = action.cardTitle ?? action.personName ?? action.organizationName ?? "Next step";
-    const quiet = action.cardId ? quietCards.has(action.cardId) : false;
-    touches.push({
+    dueSteps.push({
       href,
       title,
       detail: `${action.dueOn < todayISO() ? "Overdue" : "Due"} ${formatWhen(action.dueOn)} · ${action.text}`,
-      tone: quiet ? "quiet" : "due",
+      tone: action.cardId && quietIds.has(action.cardId) ? "quiet" : "due",
     });
-    if (action.cardId) seen.add(action.cardId);
   }
 
-  for (const card of quietCards.values()) {
-    if (seen.has(card.id)) continue;
-    touches.push({
+  const openStageIds = new Set(boardSales.stages.filter((stage) => stage.kind === "open").map((stage) => stage.id));
+  const wonStageIds = new Set(boardSales.stages.filter((stage) => stage.kind === "won").map((stage) => stage.id));
+  const setupStageIds = new Set(
+    boardOnboarding.stages.filter((stage) => stage.kind === "open").map((stage) => stage.id),
+  );
+  const stageName = new Map(boardSales.stages.map((stage) => [stage.id, stage.name]));
+  const openDeals = boardSales.cards.filter((card) => openStageIds.has(card.stageId));
+  const wonDeals = boardSales.cards.filter((card) => wonStageIds.has(card.stageId));
+  const setupCards = boardOnboarding.cards.filter((card) => setupStageIds.has(card.stageId));
+  const valueOf = (cards: { valueCents: number | null }[]) =>
+    cards.reduce((sum, card) => sum + (card.valueCents ?? 0), 0);
+  const quietDeals = openDeals
+    .filter((card) => card.quiet)
+    .map((card) => ({
+      id: card.id,
       href: `/cards/${card.id}`,
       title: card.title,
-      detail: `${card.organizationName} · no touch in over a week`,
-      tone: "quiet",
-    });
-  }
+      organizationName: card.organizationName,
+      stageName: stageName.get(card.stageId) ?? "",
+      valueCents: card.valueCents,
+    }))
+    .sort((a, b) => (b.valueCents ?? -1) - (a.valueCents ?? -1));
 
-  const sales = boardSales.stages.map((stage) => {
-    const inStage = boardSales.cards.filter((card) => card.stageId === stage.id);
-    return {
-      id: stage.id,
-      name: stage.name,
-      kind: stage.kind,
-      count: inStage.length,
-      valueCents: inStage.reduce((sum, card) => sum + (card.valueCents ?? 0), 0),
-      href: `/sales#${stage.id}`,
-    };
-  });
-
-  const onboarding = boardOnboarding.stages.map((stage) => {
-    const inStage = boardOnboarding.cards.filter((card) => card.stageId === stage.id);
-    return {
-      id: stage.id,
-      name: stage.name,
-      kind: stage.kind,
-      count: inStage.length,
-      stuck: inStage.filter((card) => card.quiet).length,
-      href: `/onboarding#${stage.id}`,
-    };
-  });
-
-  return { touches, sales, onboarding };
+  return {
+    open: { count: openDeals.length, valueCents: valueOf(openDeals) },
+    quietDeals: { count: quietDeals.length, valueCents: valueOf(quietDeals), rows: quietDeals },
+    won: { count: wonDeals.length, valueCents: valueOf(wonDeals) },
+    onboarding: { count: setupCards.length, quiet: setupCards.filter((card) => card.quiet).length },
+    due: dueSteps,
+  };
 }
 
 async function timelineFor(
@@ -394,12 +497,15 @@ export async function getPerson(workspaceId: string, id: string) {
         .then((rows) => rows[0] ?? null)
     : null;
   const touches = await touchMap(workspaceId, "personId");
+  const mail = await mailTouchMap(workspaceId);
+  const letter = letterStamp(mail, person.email);
+  const activity = touches.get(person.id) ?? null;
 
   return {
     person,
     organization,
-    quiet: isQuiet(touches.get(person.id) ?? null, person.createdAt),
-    lastTouch: touches.get(person.id) ?? null,
+    quiet: isQuietAfter([person.updatedAt, letter]),
+    lastTouch: latestStamp(activity, letter),
     timeline: await timelineFor(workspaceId, "personId", id),
     next: await earliestAction(workspaceId, "personId", id),
     cards: await cardsFor(workspaceId, "personId", id),
@@ -416,16 +522,16 @@ export async function getOrganization(workspaceId: string, id: string) {
   if (!organization) return null;
 
   const members = await db
-    .select({ id: people.id, name: people.name, title: people.title })
+    .select({ id: people.id, name: people.name, title: people.title, email: people.email })
     .from(people)
     .where(and(eq(people.workspaceId, workspaceId), eq(people.organizationId, id)))
     .orderBy(asc(people.name));
-  const touches = await touchMap(workspaceId, "organizationId");
+  const mail = await mailTouchMap(workspaceId);
 
   return {
     organization,
-    members,
-    quiet: isQuiet(touches.get(organization.id) ?? null, organization.createdAt),
+    members: members.map(({ id: memberId, name, title }) => ({ id: memberId, name, title })),
+    quiet: isQuietAfter([organization.updatedAt, newestLetter(mail, members.map((member) => member.email))]),
     timeline: await timelineFor(workspaceId, "organizationId", id),
     next: await earliestAction(workspaceId, "organizationId", id),
     cards: await cardsFor(workspaceId, "organizationId", id),
@@ -439,6 +545,7 @@ export async function getCard(workspaceId: string, id: string) {
       card: cards,
       organizationName: organizations.name,
       personName: people.name,
+      personEmail: people.email,
       stageName: stages.name,
       stageKind: stages.kind,
       pipelineKind: pipelines.kind,
@@ -461,7 +568,7 @@ export async function getCard(workspaceId: string, id: string) {
     .from(stages)
     .where(eq(stages.pipelineId, row.card.pipelineId))
     .orderBy(asc(stages.position));
-  const touches = await touchMap(workspaceId, "cardId");
+  const mail = await mailTouchMap(workspaceId);
 
   return {
     ...row,
@@ -470,7 +577,7 @@ export async function getCard(workspaceId: string, id: string) {
     checks,
     stages: stageChoices,
     people: await peopleChoices(workspaceId),
-    quiet: isQuiet(touches.get(id) ?? null, row.card.createdAt),
+    quiet: isQuietAfter([row.card.updatedAt, letterStamp(mail, row.personEmail)]),
     timeline: await timelineFor(workspaceId, "cardId", id),
     next: await earliestAction(workspaceId, "cardId", id),
   };

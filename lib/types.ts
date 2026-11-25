@@ -1,4 +1,4 @@
-export type Plan = "counter" | "desk";
+export type Plan = "free" | "pro";
 export type PipelineKind = "sales" | "onboarding";
 export type StageKind = "open" | "won" | "lost" | "done";
 export type ActivityKind = "note" | "stage_change" | "created";

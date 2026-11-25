@@ -30,7 +30,7 @@ export default async function Home({
     <main className="flex min-h-dvh flex-col bg-paper">
       <section className="overflow-hidden bg-sign text-paper">
         <div className="mx-auto flex max-w-6xl justify-end px-6 pt-6 sm:px-10">
-          <PublicNav />
+          <PublicNav omit={["sales", "onboarding"]} />
         </div>
         <h1 className="mx-auto max-w-6xl px-6 pb-20 pt-6 font-sign text-[clamp(5rem,18vw,10.5rem)] leading-[0.76] tracking-[-0.06em] sm:px-10">
           MusterLog

@@ -11,16 +11,16 @@ export function DeskGate({
     <div>
       {locked ? (
         <div className="mb-6 border-l-4 border-lacquer pl-4">
-          <p className="font-mono text-[11px] text-lacquer">Desk plan</p>
+          <p className="font-mono text-[11px] text-lacquer">Pro plan</p>
           <p className="mt-1 max-w-2xl text-sm leading-6">
-            This desk stays locked on the Counter plan. Preview the unlock in Settings. Nothing here can send or connect.
+            Pro is the paid plan. Free can look. Only Pro can save a rule or open this door.
           </p>
         </div>
       ) : (
         <div className="mb-6 border-l-4 border-steady pl-4">
-          <p className="font-mono text-[11px] text-steady">Desk, preview</p>
+          <p className="font-mono text-[11px] text-steady">Pro</p>
           <p className="mt-1 max-w-2xl text-sm leading-6">
-            The lock is off so you can see the desk. Sending and the agent door are still not live.
+            Pro is on for this book. Rules can be saved. Mail leaves once a host is saved. The MCP server is not answering yet.
           </p>
         </div>
       )}

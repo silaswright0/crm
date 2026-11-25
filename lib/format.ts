@@ -1,8 +1,26 @@
 export const QUIET_DAYS = 7;
 
-export function isQuiet(lastTouch: Date | null, createdAt: Date, now = new Date()) {
-  const stamp = lastTouch ?? createdAt;
+export function latestStamp(...values: Array<Date | string | null | undefined>) {
+  let latest: Date | null = null;
+  for (const value of values) {
+    const date = asDate(value);
+    if (!date || Number.isNaN(date.getTime())) continue;
+    if (!latest || date.getTime() > latest.getTime()) latest = date;
+  }
+  return latest;
+}
+
+export function isQuietAfter(values: Array<Date | string | null | undefined>, now = new Date()) {
+  const stamp = latestStamp(...values);
+  if (!stamp) return true;
   return now.getTime() - stamp.getTime() > QUIET_DAYS * 24 * 60 * 60 * 1000;
+}
+
+export function emailAddress(value: string | null | undefined) {
+  if (!value) return null;
+  const wrapped = value.match(/<([^>]+)>/);
+  const raw = (wrapped?.[1] ?? value).trim().toLowerCase();
+  return isEmail(raw) ? raw : null;
 }
 
 export function asDate(value: Date | string | null | undefined) {

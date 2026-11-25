@@ -13,10 +13,11 @@ export function featureHref(slug: string) {
   return `/features/${slug}`;
 }
 
-export function PublicNav({ current }: { current?: FeatureSlug }) {
+export function PublicNav({ current, omit = [] }: { current?: FeatureSlug; omit?: readonly FeatureSlug[] }) {
+  const features = publicFeatures.filter((feature) => !omit.includes(feature.slug));
   return (
     <nav aria-label="Features" className="flex max-w-full flex-wrap items-baseline justify-end font-mono text-[11px] text-sign-muted">
-      {publicFeatures.map((feature, index) => {
+      {features.map((feature, index) => {
         const href = featureHref(feature.slug);
         const active = current === feature.slug;
         return (

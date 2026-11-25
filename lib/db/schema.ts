@@ -9,7 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const planEnum = pgEnum("plan", ["counter", "desk"]);
+export const planEnum = pgEnum("plan", ["free", "pro"]);
 export const pipelineKindEnum = pgEnum("pipeline_kind", ["sales", "onboarding"]);
 export const stageKindEnum = pgEnum("stage_kind", ["open", "won", "lost", "done"]);
 export const activityKindEnum = pgEnum("activity_kind", [
@@ -17,11 +17,13 @@ export const activityKindEnum = pgEnum("activity_kind", [
   "stage_change",
   "created",
 ]);
+export const automationTriggerEnum = pgEnum("automation_trigger", ["stage", "webhook"]);
+export const mailDirectionEnum = pgEnum("mail_direction", ["in", "out"]);
 
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  plan: planEnum("plan").notNull().default("counter"),
+  plan: planEnum("plan").notNull().default("free"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -144,5 +146,47 @@ export const nextActions = pgTable("next_actions", {
   text: text("text").notNull(),
   dueOn: date("due_on").notNull(),
   done: boolean("done").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const automations = pgTable("automations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  triggerKind: automationTriggerEnum("trigger_kind").notNull(),
+  stageId: uuid("stage_id").references(() => stages.id, { onDelete: "set null" }),
+  delayDays: integer("delay_days").notNull().default(0),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  webhookToken: text("webhook_token").unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const mailAccounts = pgTable("mail_accounts", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  host: text("host").notNull(),
+  port: integer("port").notNull().default(587),
+  username: text("username"),
+  password: text("password").notNull().default(""),
+  fromAddress: text("from_address").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  direction: mailDirectionEnum("direction").notNull(),
+  fromAddress: text("from_address").notNull(),
+  toAddress: text("to_address").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
+  delivered: boolean("delivered").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
