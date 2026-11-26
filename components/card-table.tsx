@@ -50,7 +50,7 @@ export function CardTable({
                   : money(card.valueCents)}
               </td>
               <td className="py-3">
-                <form action={moveCardFromForm} className="flex gap-2">
+                <form action={moveCardFromForm} key={`${card.id}-${card.stageId}`} className="flex gap-2">
                   <input type="hidden" name="cardId" value={card.id} />
                   <select name="stageId" defaultValue={card.stageId} className={fieldClass}>
                     {stages.map((stage) => (

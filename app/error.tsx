@@ -21,7 +21,7 @@ export default function Error({
         This page did not come up.
       </h1>
       <p className="mt-4 max-w-sm text-sm leading-6 text-sign-muted">
-        Try it once more. If it stays down, go back to the counter.
+        Try it once more. If it stays down, go back home.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
         <button
@@ -32,7 +32,7 @@ export default function Error({
           Try again
         </button>
         <Link href="/counter" className="border-2 border-paper px-3 py-2 text-sm hover:bg-paper hover:text-sign">
-          Back to the counter
+          Back home
         </Link>
       </div>
     </main>

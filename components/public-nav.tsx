@@ -3,6 +3,8 @@ import Link from "next/link";
 export const publicFeatures = [
   { slug: "sales", label: "Sales" },
   { slug: "onboarding", label: "Onboarding" },
+  { slug: "crm", label: "CRM" },
+  { slug: "mail", label: "Mail" },
   { slug: "automations", label: "Automations" },
   { slug: "mcp", label: "MCP" },
 ] as const;

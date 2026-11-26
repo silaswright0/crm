@@ -8,7 +8,7 @@ import { fieldClass } from "@/components/ui";
 type SearchHit = { id: string; label: string; meta: string; href: string };
 
 const jumps = [
-  { href: "/counter", label: "The Counter" },
+  { href: "/counter", label: "Home" },
   { href: "/sales", label: "Sales" },
   { href: "/onboarding", label: "Onboarding" },
   { href: "/people", label: "People" },

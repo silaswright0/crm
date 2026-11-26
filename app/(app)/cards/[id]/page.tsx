@@ -53,7 +53,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           {record.pipelineKind === "sales" ? (
             <p className="font-mono text-2xl text-lacquer">{money(card.valueCents)}</p>
           ) : null}
-          <form action={moveCardFromForm} className="space-y-2">
+          <form action={moveCardFromForm} key={card.stageId} className="space-y-2">
             <input type="hidden" name="cardId" value={card.id} />
             <label className={labelClass} htmlFor="stage">
               Stage
@@ -98,7 +98,8 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
       }
       timeline={
         <>
-          <form id="comments" action={saveComment} className="mb-8 scroll-mt-8 space-y-2">
+          <form id="comments" action={saveComment} key={card.comment ?? ""} className="mb-8 scroll-mt-8 space-y-2">
+            <input type="hidden" name="id" value={card.id} />
             <label className={labelClass} htmlFor="comment">
               Comments
             </label>

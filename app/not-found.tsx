@@ -9,7 +9,7 @@ export default function NotFound() {
       </h1>
       <p className="mt-4 max-w-sm text-sm leading-6 text-sign-muted">That page is not part of this workspace.</p>
       <Link href="/counter" className="mt-8 inline-block w-fit border-2 border-paper px-3 py-2 text-sm hover:bg-paper hover:text-sign">
-        Back to the counter
+        Back home
       </Link>
     </main>
   );

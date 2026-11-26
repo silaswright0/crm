@@ -51,12 +51,11 @@ export function FilterChips({
   filter,
 }: {
   base: string;
-  filter: "all" | "quiet" | "open";
+  filter: "all" | "quiet";
 }) {
   const options = [
     ["all", "All"],
     ["quiet", "Quiet"],
-    ["open", "Has an open card"],
   ] as const;
 
   return (

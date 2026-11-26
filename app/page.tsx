@@ -39,10 +39,10 @@ export default async function Home({
       <section className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-10 sm:px-10">
         <div className="max-w-md">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">
-            Keep the people you are selling, and the ones you just won.
+            Keep track of new leads and new users.
           </p>
           <p className="mt-4 text-sm leading-6 text-muted">
-            A book for people and organizations, with a board for the sale and a board for what happens after the yes.
+            An app for managing your userbase with CRM notetaking, automated emails, and MCP integration.
           </p>
         </div>
         <div className="w-full max-w-sm border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033]">

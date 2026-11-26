@@ -22,7 +22,7 @@ export function Kebab({ label, children }: { label: string; children: React.Reac
     const width = 224;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
     const below = rect.bottom + 6;
-    const top = below + 280 > window.innerHeight ? Math.max(8, rect.top - 280) : below;
+    const top = below + 340 > window.innerHeight ? Math.max(8, rect.top - 340) : below;
     setBox({ top, left });
   }
 
@@ -86,10 +86,63 @@ export function Kebab({ label, children }: { label: string; children: React.Reac
   );
 }
 
-export function ColumnMenu({ stage, view }: { stage: BoardStage; view: "board" | "list" }) {
+export function ColumnMenu({
+  stage,
+  stages,
+  view,
+  onMove,
+}: {
+  stage: BoardStage;
+  stages: BoardStage[];
+  view: "board" | "list";
+  onMove: (stageId: string, direction: "left" | "right") => void;
+}) {
   return (
     <Kebab label={`Actions for ${stage.name}`}>
-      <form action={renameStage} className="space-y-2">
+      <ColumnMenuBody stage={stage} stages={stages} view={view} onMove={onMove} />
+    </Kebab>
+  );
+}
+
+function ColumnMenuBody({
+  stage,
+  stages,
+  view,
+  onMove,
+}: {
+  stage: BoardStage;
+  stages: BoardStage[];
+  view: "board" | "list";
+  onMove: (stageId: string, direction: "left" | "right") => void;
+}) {
+  const close = useContext(closeMenuContext);
+  const ordered = [...stages].sort((a, b) => a.position - b.position);
+  const index = ordered.findIndex((item) => item.id === stage.id);
+
+  function shift(direction: "left" | "right") {
+    close();
+    onMove(stage.id, direction);
+  }
+
+  return (
+    <>
+      <div>
+        <p className="font-mono text-[11px] text-muted">Order</p>
+        <div className="mt-1 flex gap-3">
+          <button type="button" disabled={index <= 0} onClick={() => shift("left")} className="text-sm text-ink hover:text-lacquer disabled:text-muted">
+            Move left
+          </button>
+          <button
+            type="button"
+            disabled={index < 0 || index >= ordered.length - 1}
+            onClick={() => shift("right")}
+            className="text-sm text-ink hover:text-lacquer disabled:text-muted"
+          >
+            Move right
+          </button>
+        </div>
+      </div>
+      <form action={renameStage} className="mt-3 space-y-2 border-t border-line pt-3">
         <input type="hidden" name="stageId" value={stage.id} />
         <input type="hidden" name="view" value={view} />
         <p className="font-mono text-[11px] text-muted">Rename</p>
@@ -105,7 +158,7 @@ export function ColumnMenu({ stage, view }: { stage: BoardStage; view: "board" |
           Delete
         </button>
       </form>
-    </Kebab>
+    </>
   );
 }
 

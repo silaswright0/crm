@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { createCard, moveCard } from "@/lib/actions";
+import { createCard, moveCard, moveStage } from "@/lib/actions";
 import { money } from "@/lib/format";
 import type { BoardCard, BoardStage, PipelineKind } from "@/lib/types";
-import { AddColumn } from "@/components/columns";
+import { AddColumn, shiftStages } from "@/components/columns";
 import { CardMenu, ColumnMenu } from "@/components/menus";
 import { QuietMark, buttonClass, fieldClass } from "@/components/ui";
 
@@ -23,6 +23,17 @@ export function Board({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState<string | null>(null);
+  const [order, setOrder] = useState(stages);
+  const signature = stages.map((stage) => `${stage.id}:${stage.position}`).join();
+
+  useEffect(() => {
+    setOrder(stages);
+  }, [signature, stages]);
+
+  function onMove(stageId: string, direction: "left" | "right") {
+    setOrder((current) => shiftStages(current, stageId, direction));
+    void moveStage(stageId, direction).then(() => router.refresh());
+  }
   const dragged = useRef(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -56,20 +67,20 @@ export function Board({
       }}
     >
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {stages.map((stage) => {
+        {order.map((stage) => {
           const column = cards.filter((card) => card.stageId === stage.id);
           const total = column.reduce((sum, card) => sum + (card.valueCents ?? 0), 0);
           const doneCount = column.reduce((sum, card) => sum + card.checklistDone, 0);
           const stepCount = column.reduce((sum, card) => sum + card.checklistTotal, 0);
           return (
-            <Column key={stage.id} stage={stage} count={column.length}>
+            <Column key={stage.id} stage={stage} stages={order} onMove={onMove}>
               <p className={`mt-2 font-mono text-xs ${stage.kind === "won" || stage.kind === "done" ? "text-steady" : "text-muted"}`}>
                 {kind === "sales" ? money(column.length ? total : 0) : stepCount ? `${doneCount} of ${stepCount}` : "—"}
               </p>
               <div className="mt-3 space-y-2">
                 {column.length === 0 ? <p className="text-sm text-muted">Nothing on this stage.</p> : null}
                 {column.map((card) => (
-                  <DealCard key={card.id} card={card} kind={kind} stages={stages} dragged={dragged} />
+                  <DealCard key={card.id} card={card} kind={kind} stages={order} dragged={dragged} />
                 ))}
               </div>
               {adding === stage.id ? (
@@ -104,11 +115,13 @@ export function Board({
 
 function Column({
   stage,
-  count,
+  stages,
+  onMove,
   children,
 }: {
   stage: BoardStage;
-  count: number;
+  stages: BoardStage[];
+  onMove: (stageId: string, direction: "left" | "right") => void;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
@@ -123,11 +136,8 @@ function Column({
           stage.kind === "won" || stage.kind === "done" ? "border-steady" : "border-ink"
         }`}
       >
-        <div className="flex min-w-0 items-start gap-2">
-          <ColumnMenu stage={stage} view="board" />
-          <h2 className="font-sign text-lg tracking-[-0.03em]">{stage.name}</h2>
-        </div>
-        <span className="font-mono text-xs text-muted">{count}</span>
+        <h2 className="min-w-0 font-sign text-lg tracking-[-0.03em]">{stage.name}</h2>
+        <ColumnMenu stage={stage} stages={stages} view="board" onMove={onMove} />
       </header>
       {children}
     </section>

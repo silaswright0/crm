@@ -12,10 +12,9 @@ export default async function PeoplePage({
 }) {
   const { workspace } = await requireWorkspace();
   const params = await searchParams;
-  const filter = params.filter === "quiet" || params.filter === "open" ? params.filter : "all";
+  const filter = params.filter === "quiet" ? "quiet" : "all";
   const people = (await listPeople(workspace.id)).filter((person) => {
     if (filter === "quiet") return person.quiet;
-    if (filter === "open") return person.hasOpenCard;
     return true;
   });
 

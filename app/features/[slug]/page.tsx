@@ -17,6 +17,16 @@ const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> =
     lede: "After the yes, the work of getting them steady.",
     body: "A won sale does not leave the book. It moves to a second board, from Welcome through Setup and a first win, until the client is Steady. Three checks ride with the card so nothing promised gets dropped.",
   },
+  crm: {
+    title: "CRM",
+    lede: "One book for the people you are selling, and the ones you just won.",
+    body: "People and organizations live here. A person can hold a next step, a comment, and a card on Sales or Onboarding. Home sets this month beside last month, and lists the open deals that have gone quiet. The book is on Free.",
+  },
+  mail: {
+    title: "Mail",
+    lede: "Write from the book. The letter leaves when a host is saved.",
+    body: "Inbox, Sent, and a page to write. The host and the from-address are saved on the book in Config. Mail is a Pro feature. Free can look. Until a host is saved, a letter stays in Sent.",
+  },
   automations: {
     title: "Automations",
     lede: "An email when a card reaches a stage, or when another system calls.",
@@ -103,6 +113,44 @@ function Showcase({ slug }: { slug: FeatureSlug }) {
           </ul>
         ) : null}
       </div>
+    );
+  }
+
+  if (slug === "crm") {
+    const lines = [
+      ["Home", "This month beside last month, and the quiet deals."],
+      ["People", "A name, a way to reach them, and the organization they belong to."],
+      ["Organizations", "The shop or company, and the people on it."],
+      ["The card", "A next step, a comment, and the stage it sits on."],
+    ];
+    return (
+      <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
+        {lines.map(([name, detail]) => (
+          <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
+            <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
+            <span className="text-sm text-muted">{detail}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (slug === "mail") {
+    const lines = [
+      ["Inbox", "Letters that arrived for this book."],
+      ["Sent", "Letters you wrote. They stay here until a host can take them."],
+      ["Write", "A letter to someone on the book."],
+      ["Config", "The host, the port, and the address it leaves from."],
+    ];
+    return (
+      <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
+        {lines.map(([name, detail]) => (
+          <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
+            <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
+            <span className="text-sm text-muted">{detail}</span>
+          </li>
+        ))}
+      </ul>
     );
   }
 

@@ -79,7 +79,7 @@ export function NextPanel({
 }) {
   return (
     <div className="border-l-4 border-sign pl-4">
-      <p className={kickerClass}>Next</p>
+      <p className={kickerClass}>Next steps</p>
       {action ? (
         <div className="mt-3">
           <p className="font-sign text-2xl leading-tight tracking-[-0.03em]">{action.text}</p>

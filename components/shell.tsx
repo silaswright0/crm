@@ -7,7 +7,7 @@ import type { Plan } from "@/lib/types";
 import { CommandPalette } from "@/components/command-palette";
 
 const book = [
-  { href: "/counter", label: "The Counter" },
+  { href: "/counter", label: "Home" },
   { href: "/sales", label: "Sales" },
   { href: "/onboarding", label: "Onboarding" },
 ];

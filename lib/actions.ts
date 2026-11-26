@@ -476,6 +476,33 @@ export async function deleteStage(formData: FormData) {
   redirect(href);
 }
 
+export async function moveStage(stageId: string, direction: "left" | "right") {
+  if (!isRecordId(stageId) || (direction !== "left" && direction !== "right")) return;
+  const { workspace } = await requireWorkspace();
+
+  const [row] = await db
+    .select({ stage: stages })
+    .from(stages)
+    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
+  if (!row) return;
+
+  const siblings = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.pipelineId, row.stage.pipelineId))
+    .orderBy(asc(stages.position));
+  const index = siblings.findIndex((stage) => stage.id === row.stage.id);
+  const neighbor = siblings[direction === "left" ? index - 1 : index + 1];
+  if (!neighbor) return;
+
+  await db.transaction(async (tx) => {
+    await tx.update(stages).set({ position: neighbor.position }).where(eq(stages.id, row.stage.id));
+    await tx.update(stages).set({ position: row.stage.position }).where(eq(stages.id, neighbor.id));
+  });
+
+  refresh();
+}
+
 export async function renameStage(formData: FormData) {
   const { workspace } = await requireWorkspace();
   const stageId = idOf(formData.get("stageId"));

@@ -112,12 +112,6 @@ export async function listPeople(workspaceId: string) {
 
   const touches = await touchMap(workspaceId, "personId");
   const mail = await mailTouchMap(workspaceId);
-  const openRows = await db
-    .select({ personId: cards.personId })
-    .from(cards)
-    .innerJoin(stages, eq(cards.stageId, stages.id))
-    .where(and(eq(cards.workspaceId, workspaceId), eq(stages.kind, "open"), isNotNull(cards.personId)));
-  const open = new Set(openRows.map((row) => row.personId).filter((id): id is string => Boolean(id)));
 
   return rows.map((row) => {
     const letter = letterStamp(mail, row.email);
@@ -130,7 +124,6 @@ export async function listPeople(workspaceId: string) {
       organizationName: row.organizationName,
       quiet: isQuietAfter([row.updatedAt, letter]),
       lastTouch: latestStamp(activity, letter),
-      hasOpenCard: open.has(row.id),
     };
   });
 }
@@ -154,12 +147,6 @@ export async function listOrganizations(workspaceId: string) {
     list.push(member.email);
     emailsByOrg.set(member.organizationId, list);
   }
-  const openRows = await db
-    .select({ organizationId: cards.organizationId })
-    .from(cards)
-    .innerJoin(stages, eq(cards.stageId, stages.id))
-    .where(and(eq(cards.workspaceId, workspaceId), eq(stages.kind, "open")));
-  const open = new Set(openRows.map((row) => row.organizationId));
   const counts = await db
     .select({
       organizationId: people.organizationId,
@@ -177,7 +164,6 @@ export async function listOrganizations(workspaceId: string) {
     industry: row.industry,
     peopleCount: peopleCount.get(row.id) ?? 0,
     quiet: isQuietAfter([row.updatedAt, newestLetter(mail, emailsByOrg.get(row.id) ?? [])]),
-    hasOpenCard: open.has(row.id),
   }));
 }
 
@@ -317,67 +303,28 @@ export async function getBoard(workspaceId: string, kind: PipelineKind) {
   return { stages: boardStages, cards: boardCards };
 }
 
-export async function getCounter(workspaceId: string) {
+export async function getCounter(workspaceId: string, now = new Date()) {
   const boardSales = await getBoard(workspaceId, "sales");
-  const boardOnboarding = await getBoard(workspaceId, "onboarding");
-  const due = await db
-    .select({
-      id: nextActions.id,
-      text: nextActions.text,
-      dueOn: nextActions.dueOn,
-      cardId: nextActions.cardId,
-      personId: nextActions.personId,
-      organizationId: nextActions.organizationId,
-      cardTitle: cards.title,
-      personName: people.name,
-      organizationName: organizations.name,
-    })
-    .from(nextActions)
-    .leftJoin(cards, eq(nextActions.cardId, cards.id))
-    .leftJoin(people, eq(nextActions.personId, people.id))
-    .leftJoin(organizations, eq(nextActions.organizationId, organizations.id))
-    .where(
-      and(
-        eq(nextActions.workspaceId, workspaceId),
-        eq(nextActions.done, false),
-        sql`${nextActions.dueOn} <= ${todayISO()}::date`,
-      ),
-    )
-    .orderBy(asc(nextActions.dueOn));
-
-  const quietIds = new Set(
-    [...boardSales.cards, ...boardOnboarding.cards].filter((card) => card.quiet).map((card) => card.id),
-  );
-  const dueSteps: { href: string; title: string; detail: string; tone: "due" | "quiet" }[] = [];
-
-  for (const action of due) {
-    const href = action.cardId
-      ? `/cards/${action.cardId}`
-      : action.personId
-        ? `/people/${action.personId}`
-        : action.organizationId
-          ? `/organizations/${action.organizationId}`
-          : "/counter";
-    const title = action.cardTitle ?? action.personName ?? action.organizationName ?? "Next step";
-    dueSteps.push({
-      href,
-      title,
-      detail: `${action.dueOn < todayISO() ? "Overdue" : "Due"} ${formatWhen(action.dueOn)} · ${action.text}`,
-      tone: action.cardId && quietIds.has(action.cardId) ? "quiet" : "due",
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const monthName = (date: Date) => date.toLocaleDateString("en-US", { month: "long" });
+  const opened = await db
+    .select({ createdAt: cards.createdAt, valueCents: cards.valueCents })
+    .from(cards)
+    .innerJoin(pipelines, eq(cards.pipelineId, pipelines.id))
+    .where(and(eq(cards.workspaceId, workspaceId), eq(pipelines.kind, "sales")));
+  const span = (start: Date, end: Date) =>
+    opened.filter((card) => {
+      const created = asDate(card.createdAt);
+      return created != null && created >= start && created < end;
     });
-  }
+  const current = span(thisMonth, now);
+  const previous = span(lastMonth, thisMonth);
+  const valueOf = (rows: { valueCents: number | null }[]) => rows.reduce((sum, card) => sum + (card.valueCents ?? 0), 0);
 
   const openStageIds = new Set(boardSales.stages.filter((stage) => stage.kind === "open").map((stage) => stage.id));
-  const wonStageIds = new Set(boardSales.stages.filter((stage) => stage.kind === "won").map((stage) => stage.id));
-  const setupStageIds = new Set(
-    boardOnboarding.stages.filter((stage) => stage.kind === "open").map((stage) => stage.id),
-  );
   const stageName = new Map(boardSales.stages.map((stage) => [stage.id, stage.name]));
   const openDeals = boardSales.cards.filter((card) => openStageIds.has(card.stageId));
-  const wonDeals = boardSales.cards.filter((card) => wonStageIds.has(card.stageId));
-  const setupCards = boardOnboarding.cards.filter((card) => setupStageIds.has(card.stageId));
-  const valueOf = (cards: { valueCents: number | null }[]) =>
-    cards.reduce((sum, card) => sum + (card.valueCents ?? 0), 0);
   const quietDeals = openDeals
     .filter((card) => card.quiet)
     .map((card) => ({
@@ -391,11 +338,11 @@ export async function getCounter(workspaceId: string) {
     .sort((a, b) => (b.valueCents ?? -1) - (a.valueCents ?? -1));
 
   return {
+    months: { current: monthName(thisMonth), previous: monthName(lastMonth) },
+    fresh: { current: current.length, previous: previous.length },
+    freshValue: { current: valueOf(current), previous: valueOf(previous) },
     open: { count: openDeals.length, valueCents: valueOf(openDeals) },
     quietDeals: { count: quietDeals.length, valueCents: valueOf(quietDeals), rows: quietDeals },
-    won: { count: wonDeals.length, valueCents: valueOf(wonDeals) },
-    onboarding: { count: setupCards.length, quiet: setupCards.filter((card) => card.quiet).length },
-    due: dueSteps,
   };
 }
 

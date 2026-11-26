@@ -11,10 +11,9 @@ export default async function OrganizationsPage({
 }) {
   const { workspace } = await requireWorkspace();
   const params = await searchParams;
-  const filter = params.filter === "quiet" || params.filter === "open" ? params.filter : "all";
+  const filter = params.filter === "quiet" ? "quiet" : "all";
   const organizations = (await listOrganizations(workspace.id)).filter((organization) => {
     if (filter === "quiet") return organization.quiet;
-    if (filter === "open") return organization.hasOpenCard;
     return true;
   });
 
