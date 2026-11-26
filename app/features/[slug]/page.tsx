@@ -4,38 +4,37 @@ import { notFound } from "next/navigation";
 import { PublicNav, publicFeatures, type FeatureSlug } from "@/components/public-nav";
 import { buttonClass } from "@/components/ui";
 import { automationExamples, mcpTools } from "@/lib/desk";
-import { ONBOARDING_STEPS, PIPELINES } from "@/lib/pipelines";
 
-const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> = {
-  sales: {
-    title: "Sales",
-    lede: "Move a card when the conversation moves.",
-    body: "The sale lives on one board. A person starts in New, and the card walks through Talking and Proposal until it is Won or Lost. The card keeps who they are, the organization they belong to, and what the work is worth.",
+const copy: Record<FeatureSlug, { title: string; lede: string; body: string; plan: string }> = {
+  home: {
+    title: "Home",
+    lede: "This month beside last month, and the deals that have gone quiet.",
+    body: "Home counts the new deals opened this month, and what they are worth, set next to last month. Under that, the open deals that have been still for seven days. A deal stays quiet until the card is updated, a letter to them is accepted by the mail server, or a letter arrives from their address.",
+    plan: "On every book.",
   },
-  onboarding: {
-    title: "Onboarding",
-    lede: "After the yes, the work of getting them steady.",
-    body: "A won sale does not leave the book. It moves to a second board, from Welcome through Setup and a first win, until the client is Steady. Three checks ride with the card so nothing promised gets dropped.",
-  },
-  crm: {
-    title: "CRM",
-    lede: "One book for the people you are selling, and the ones you just won.",
-    body: "People and organizations live here. A person can hold a next step, a comment, and a card on Sales or Onboarding. Home sets this month beside last month, and lists the open deals that have gone quiet. The book is on Free.",
+  book: {
+    title: "Book",
+    lede: "The people, the organizations, and the cards they sit on.",
+    body: "A person keeps a name, a way to reach them, and the day they were last touched. An organization keeps the people on it. A card keeps a comment, a next step, and a value. The boards start with a few columns. Add, rename, or remove the open ones. Won, Lost, and Steady stay at the end.",
+    plan: "On every book.",
   },
   mail: {
     title: "Mail",
-    lede: "Write from the book. The letter leaves when a host is saved.",
-    body: "Inbox, Sent, and a page to write. The host and the from-address are saved on the book in Config. Mail is a Pro feature. Free can look. Until a host is saved, a letter stays in Sent.",
+    lede: "A letter leaves only after the server takes it.",
+    body: "Open Mail with no host and the page is the setup. Save the host, the port, and the from-address, and Inbox, Sent, and Write open. A letter is stored in Sent when the server accepts it. That letter, or one that arrives from their address, clears Quiet for seven days.",
+    plan: "Pro. Free can look.",
   },
   automations: {
     title: "Automations",
-    lede: "An email when a card reaches a stage, or when another system calls.",
-    body: "A rule is one letter. It can leave when a sales or onboarding card enters a stage, after a wait of a few days. Or it can leave when a webhook arrives, carrying the person to write to. Automations are a Pro feature. Free can look. Only Pro can save a rule.",
+    lede: "One rule. One letter. A stage, or a call from outside.",
+    body: "A rule sends when a card enters a stage, the same day or a few days later. Or it sends when a webhook arrives, to the address in the request. Each rule is one letter. Free can read the desk. Only Pro can save a rule.",
+    plan: "Pro. Free can look.",
   },
   mcp: {
     title: "MCP",
-    lede: "An assistant that can run this book, and no other.",
-    body: "MusterLog will speak MCP. The assistant can list and change people, organizations, cards, notes, and next steps. It cannot see another workspace, and it does not send the mail. MCP is a Pro feature. The door stays shut on Free.",
+    lede: "An assistant for this book, and no other.",
+    body: "The assistant can list and change people, organizations, cards, notes, and next steps. It stays inside one workspace, and it does not send mail. The door is drawn. The server that answers it is the next build. Free can see the tools. Pro opens the door.",
+    plan: "Pro. The server is the next build.",
   },
 };
 
@@ -76,6 +75,7 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
         <div className="max-w-md">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">{feature.lede}</p>
           <p className="mt-4 text-sm leading-6 text-muted">{feature.body}</p>
+          <p className="mt-4 font-mono text-[11px] text-muted">{feature.plan}</p>
         </div>
         <Showcase slug={slug} />
         <div>
@@ -89,68 +89,76 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
   );
 }
 
+function LineList({ lines }: { lines: [string, string][] }) {
+  return (
+    <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
+      {lines.map(([name, detail]) => (
+        <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
+          <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
+          <span className="text-sm text-muted">{detail}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Showcase({ slug }: { slug: FeatureSlug }) {
-  if (slug === "sales" || slug === "onboarding") {
-    const pipeline = PIPELINES.find((item) => item.kind === slug);
-    if (!pipeline) return null;
+  if (slug === "home") {
     return (
-      <div className="w-full max-w-3xl">
-        <ol className="flex flex-wrap gap-2">
-          {pipeline.stages.map((stage, index) => (
-            <li key={stage.name} className="border border-sign px-3 py-2 text-sm">
-              <span className="mr-2 font-mono text-[11px] text-muted">{String(index + 1).padStart(2, "0")}</span>
-              {stage.name}
+      <div className="w-full max-w-xl">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <figure className="border border-line p-5">
+            <figcaption className="font-mono text-[11px] text-muted">New deals</figcaption>
+            <p className="mt-3 font-sign text-5xl leading-none tracking-[-0.04em]">4</p>
+            <p className="mt-2 text-sm text-muted">Last month was 2.</p>
+          </figure>
+          <figure className="border border-line p-5">
+            <figcaption className="font-mono text-[11px] text-muted">Deal value</figcaption>
+            <p className="mt-3 font-sign text-5xl leading-none tracking-[-0.04em]">$18,000</p>
+            <p className="mt-2 text-sm text-muted">Last month was $9,000.</p>
+          </figure>
+        </div>
+        <ul className="mt-6 divide-y divide-line border-y border-line">
+          {[
+            ["North Glass", "Talking", "$12,000"],
+            ["Harbor & Rye", "Proposal", "$6,400"],
+          ].map(([name, stage, value]) => (
+            <li key={name} className="flex items-center justify-between gap-4 bg-quiet py-3">
+              <span>
+                <span className="block text-sm">{name}</span>
+                <span className="mt-1 block text-sm text-muted">{stage}</span>
+              </span>
+              <span className="font-mono text-sm text-lacquer">{value}</span>
             </li>
           ))}
-        </ol>
-        {slug === "onboarding" ? (
-          <ul className="mt-6 max-w-sm divide-y divide-line border-y border-line">
-            {ONBOARDING_STEPS.map((step) => (
-              <li key={step} className="py-3 text-sm">
-                {step}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        </ul>
       </div>
     );
   }
 
-  if (slug === "crm") {
-    const lines = [
-      ["Home", "This month beside last month, and the quiet deals."],
-      ["People", "A name, a way to reach them, and the organization they belong to."],
-      ["Organizations", "The shop or company, and the people on it."],
-      ["The card", "A next step, a comment, and the stage it sits on."],
-    ];
+  if (slug === "book") {
     return (
-      <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-        {lines.map(([name, detail]) => (
-          <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
-            <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
-            <span className="text-sm text-muted">{detail}</span>
-          </li>
-        ))}
-      </ul>
+      <LineList
+        lines={[
+          ["People", "A name, how to reach them, and the day of the last touch."],
+          ["Organizations", "The shop or company, and the people on it."],
+          ["The card", "A comment, a next step, and what the work is worth."],
+          ["Columns", "Start with a few. Add, rename, or remove the open ones."],
+        ]}
+      />
     );
   }
 
   if (slug === "mail") {
-    const lines = [
-      ["Inbox", "Letters that arrived for this book."],
-      ["Sent", "Letters you wrote. They stay here until a host can take them."],
-      ["Write", "A letter to someone on the book."],
-      ["Config", "The host, the port, and the address it leaves from."],
-    ];
     return (
-      <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-        {lines.map(([name, detail]) => (
-          <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
-            <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
-            <span className="text-sm text-muted">{detail}</span>
-          </li>
-        ))}
-      </ul>
+      <LineList
+        lines={[
+          ["Host", "Saved before Inbox, Sent, or Write will open."],
+          ["Write", "A letter to someone on the book."],
+          ["Sent", "Stored once the mail server accepts it."],
+          ["Quiet", "A letter that left, or one that arrived from them, clears the seven days."],
+        ]}
+      />
     );
   }
 

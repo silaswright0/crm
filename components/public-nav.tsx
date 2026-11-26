@@ -1,9 +1,8 @@
 import Link from "next/link";
 
 export const publicFeatures = [
-  { slug: "sales", label: "Sales" },
-  { slug: "onboarding", label: "Onboarding" },
-  { slug: "crm", label: "CRM" },
+  { slug: "home", label: "Home" },
+  { slug: "book", label: "Book" },
   { slug: "mail", label: "Mail" },
   { slug: "automations", label: "Automations" },
   { slug: "mcp", label: "MCP" },
@@ -15,11 +14,10 @@ export function featureHref(slug: string) {
   return `/features/${slug}`;
 }
 
-export function PublicNav({ current, omit = [] }: { current?: FeatureSlug; omit?: readonly FeatureSlug[] }) {
-  const features = publicFeatures.filter((feature) => !omit.includes(feature.slug));
+export function PublicNav({ current }: { current?: FeatureSlug }) {
   return (
     <nav aria-label="Features" className="flex max-w-full flex-wrap items-baseline justify-end font-mono text-[11px] text-sign-muted">
-      {features.map((feature, index) => {
+      {publicFeatures.map((feature, index) => {
         const href = featureHref(feature.slug);
         const active = current === feature.slug;
         return (

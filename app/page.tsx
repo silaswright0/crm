@@ -30,7 +30,7 @@ export default async function Home({
     <main className="flex min-h-dvh flex-col bg-paper">
       <section className="overflow-hidden bg-sign text-paper">
         <div className="mx-auto flex max-w-6xl justify-end px-6 pt-6 sm:px-10">
-          <PublicNav omit={["sales", "onboarding"]} />
+          <PublicNav />
         </div>
         <h1 className="mx-auto max-w-6xl px-6 pb-20 pt-6 font-sign text-[clamp(5rem,18vw,10.5rem)] leading-[0.76] tracking-[-0.06em] sm:px-10">
           MusterLog
@@ -39,10 +39,10 @@ export default async function Home({
       <section className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-10 sm:px-10">
         <div className="max-w-md">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">
-            Keep track of new leads and new users.
+            This month beside last month. And the deals that went quiet.
           </p>
           <p className="mt-4 text-sm leading-6 text-muted">
-            An app for managing your userbase with CRM notetaking, automated emails, and MCP integration.
+            A book for the people you are selling, and the ones you just won. Home counts the new deals. A deal goes quiet after seven still days.
           </p>
         </div>
         <div className="w-full max-w-sm border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033]">
