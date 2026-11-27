@@ -20,7 +20,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "MusterLog",
-  description: "This month beside last month, and the deals that have gone quiet.",
+  description: "See the deal that stalled, before it goes cold.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

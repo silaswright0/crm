@@ -3,38 +3,53 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicNav, publicFeatures, type FeatureSlug } from "@/components/public-nav";
 import { buttonClass } from "@/components/ui";
-import { automationExamples, mcpTools } from "@/lib/desk";
+import { automationExamples } from "@/lib/desk";
 
-const copy: Record<FeatureSlug, { title: string; lede: string; body: string; plan: string }> = {
-  home: {
-    title: "Home",
-    lede: "This month beside last month, and the deals that have gone quiet.",
-    body: "Home counts the new deals opened this month, and what they are worth, set next to last month. Under that, the open deals that have been still for seven days. A deal stays quiet until the card is updated, a letter to them is accepted by the mail server, or a letter arrives from their address.",
-    plan: "On every book.",
-  },
-  book: {
-    title: "Book",
-    lede: "The people, the organizations, and the cards they sit on.",
-    body: "A person keeps a name, a way to reach them, and the day they were last touched. An organization keeps the people on it. A card keeps a comment, a next step, and a value. The boards start with a few columns. Add, rename, or remove the open ones. Won, Lost, and Steady stay at the end.",
-    plan: "On every book.",
+const copy: Record<FeatureSlug, { title: string; lede: string; body: string; points: [string, string][] }> = {
+  crm: {
+    title: "CRM",
+    lede: "See the deal that stalled, before it goes cold.",
+    body: "A pipeline only helps if a stuck deal is obvious. Home sets this month beside last month, then lists the open deals that have been still for seven days. The person, the company, and the card stay on one book. You move the card when the conversation moves.",
+    points: [
+      ["Quiet deals", "Seven days with no update, and no letter the server accepted. The deal is listed, with its stage and value."],
+      ["This month", "New deals and what they are worth, next to last month."],
+      ["People", "Name, email, last touch, and the organization they belong to."],
+      ["Two boards", "The sale, then the work after the yes. Add, rename, or remove the open columns."],
+      ["The card", "A comment, a value, a next step, and the stage it is on."],
+    ],
   },
   mail: {
     title: "Mail",
-    lede: "A letter leaves only after the server takes it.",
-    body: "Open Mail with no host and the page is the setup. Save the host, the port, and the from-address, and Inbox, Sent, and Write open. A letter is stored in Sent when the server accepts it. That letter, or one that arrives from their address, clears Quiet for seven days.",
-    plan: "Pro. Free can look.",
+    lede: "Write the follow-up where the deal already lives.",
+    body: "Other inboxes keep the letter away from the card. Here you write to someone on the book. The page is the host setup until a server is saved, so a draft cannot look like it was sent. Sent means that server accepted the letter. That is the touch that clears Quiet.",
+    points: [
+      ["On the card", "The person and their address are already in the book."],
+      ["Host first", "Inbox, Sent, and Write open after the host, port, and from-address are saved."],
+      ["Accepted", "The letter is stored in Sent only when the mail server takes it."],
+      ["Clears Quiet", "A letter that left resets the seven quiet days on that person and their open deal."],
+    ],
   },
   automations: {
     title: "Automations",
-    lede: "One rule. One letter. A stage, or a call from outside.",
-    body: "A rule sends when a card enters a stage, the same day or a few days later. Or it sends when a webhook arrives, to the address in the request. Each rule is one letter. Free can read the desk. Only Pro can save a rule.",
-    plan: "Pro. Free can look.",
+    lede: "The follow-up leaves when the card reaches the stage.",
+    body: "A first conversation and a yes both need a letter, and both are easy to forget. One rule holds one letter. It sends when a card enters a stage, that day or a few days later. A form on your site can send the same way, to the address in the call.",
+    points: [
+      ["Stage", "Talking, Welcome, or any column you keep. The letter leaves when the card arrives."],
+      ["Wait", "The same day, or as many as ninety days later."],
+      ["Webhook", "Your site calls the book and names who to write."],
+      ["One letter", "One subject, one body. Every rule stays visible on the desk."],
+    ],
   },
   mcp: {
     title: "MCP",
-    lede: "An assistant for this book, and no other.",
-    body: "The assistant can list and change people, organizations, cards, notes, and next steps. It stays inside one workspace, and it does not send mail. The door is drawn. The server that answers it is the next build. Free can see the tools. Pro opens the door.",
-    plan: "Pro. The server is the next build.",
+    lede: "Ask an assistant to run this book while you stay in the work.",
+    body: "The assistant can find a person, move a deal, write the note, save a mail host, send a letter, and set a follow-up rule. It stays in this workspace. A letter is stored only after the mail server accepts it.",
+    points: [
+      ["People and companies", "Find them, add one, or change how you reach them."],
+      ["Deals", "Open a card, move it, change the value, or take it off the board."],
+      ["Mail", "Save the host, read Sent and Inbox, and send a letter."],
+      ["Automations", "Save a stage rule or a webhook rule, or remove one."],
+    ],
   },
 };
 
@@ -71,129 +86,34 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
           {feature.title}
         </h1>
       </section>
-      <section className="mx-auto flex w-full max-w-6xl flex-col items-start gap-8 px-6 py-10 sm:px-10">
-        <div className="max-w-md">
+      <section className="mx-auto flex w-full max-w-6xl flex-col items-start gap-10 px-6 py-10 sm:px-10">
+        <div className="max-w-lg">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">{feature.lede}</p>
           <p className="mt-4 text-sm leading-6 text-muted">{feature.body}</p>
-          <p className="mt-4 font-mono text-[11px] text-muted">{feature.plan}</p>
         </div>
-        <Showcase slug={slug} />
-        <div>
-          <p className="text-sm text-muted">Log in to open this in the book.</p>
-          <Link href="/" className={`${buttonClass} mt-4 inline-block`}>
-            Log in
-          </Link>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function LineList({ lines }: { lines: [string, string][] }) {
-  return (
-    <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-      {lines.map(([name, detail]) => (
-        <li key={name} className="grid gap-1 py-3 sm:grid-cols-[10rem_1fr]">
-          <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
-          <span className="text-sm text-muted">{detail}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Showcase({ slug }: { slug: FeatureSlug }) {
-  if (slug === "home") {
-    return (
-      <div className="w-full max-w-xl">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <figure className="border border-line p-5">
-            <figcaption className="font-mono text-[11px] text-muted">New deals</figcaption>
-            <p className="mt-3 font-sign text-5xl leading-none tracking-[-0.04em]">4</p>
-            <p className="mt-2 text-sm text-muted">Last month was 2.</p>
-          </figure>
-          <figure className="border border-line p-5">
-            <figcaption className="font-mono text-[11px] text-muted">Deal value</figcaption>
-            <p className="mt-3 font-sign text-5xl leading-none tracking-[-0.04em]">$18,000</p>
-            <p className="mt-2 text-sm text-muted">Last month was $9,000.</p>
-          </figure>
-        </div>
-        <ul className="mt-6 divide-y divide-line border-y border-line">
-          {[
-            ["North Glass", "Talking", "$12,000"],
-            ["Harbor & Rye", "Proposal", "$6,400"],
-          ].map(([name, stage, value]) => (
-            <li key={name} className="flex items-center justify-between gap-4 bg-quiet py-3">
-              <span>
-                <span className="block text-sm">{name}</span>
-                <span className="mt-1 block text-sm text-muted">{stage}</span>
-              </span>
-              <span className="font-mono text-sm text-lacquer">{value}</span>
+        <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
+          {feature.points.map(([name, detail]) => (
+            <li key={name} className="grid gap-1 py-4 sm:grid-cols-[10rem_1fr] sm:items-baseline">
+              <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
+              <span className="text-sm leading-6 text-muted">{detail}</span>
             </li>
           ))}
         </ul>
-      </div>
-    );
-  }
-
-  if (slug === "book") {
-    return (
-      <LineList
-        lines={[
-          ["People", "A name, how to reach them, and the day of the last touch."],
-          ["Organizations", "The shop or company, and the people on it."],
-          ["The card", "A comment, a next step, and what the work is worth."],
-          ["Columns", "Start with a few. Add, rename, or remove the open ones."],
-        ]}
-      />
-    );
-  }
-
-  if (slug === "mail") {
-    return (
-      <LineList
-        lines={[
-          ["Host", "Saved before Inbox, Sent, or Write will open."],
-          ["Write", "A letter to someone on the book."],
-          ["Sent", "Stored once the mail server accepts it."],
-          ["Quiet", "A letter that left, or one that arrived from them, clears the seven days."],
-        ]}
-      />
-    );
-  }
-
-  if (slug === "automations") {
-    return (
-      <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-        {automationExamples.map((example) => (
-          <li key={example.name} className="py-4">
-            <p className="font-sign text-2xl leading-none tracking-[-0.03em]">{example.name}</p>
-            <p className="mt-2 text-sm">{example.when}</p>
-            <p className="mt-1 text-sm text-muted">{example.then}</p>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  const groups = [...new Set(mcpTools.map((tool) => tool.group))];
-  return (
-    <div className="w-full max-w-xl">
-      {groups.map((group) => (
-        <section key={group} className="mt-6 first:mt-0">
-          <h2 className="font-mono text-[11px] text-muted">{group}</h2>
-          <ul className="mt-2 divide-y divide-line border-y border-line">
-            {mcpTools
-              .filter((tool) => tool.group === group)
-              .map((tool) => (
-                <li key={tool.name} className="grid gap-1 py-3 sm:grid-cols-[14rem_1fr]">
-                  <span className="font-mono text-sm">{tool.name}</span>
-                  <span className="text-sm text-muted">{tool.detail}</span>
-                </li>
-              ))}
+        {slug === "automations" ? (
+          <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
+            {automationExamples.map((example) => (
+              <li key={example.name} className="py-4">
+                <p className="font-sign text-2xl leading-none tracking-[-0.03em]">{example.name}</p>
+                <p className="mt-2 text-sm">{example.when}</p>
+                <p className="mt-1 text-sm text-muted">{example.then}</p>
+              </li>
+            ))}
           </ul>
-        </section>
-      ))}
-    </div>
+        ) : null}
+        <Link href="/" className={`${buttonClass} inline-block`}>
+          Log in
+        </Link>
+      </section>
+    </main>
   );
 }

@@ -1,44 +1,24 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { createHash, randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
-import {
-  activities,
-  automations,
-  cards,
-  messages,
-  checklistItems,
-  mailAccounts,
-  nextActions,
-  organizations,
-  people,
-  pipelines,
-  stages,
-  users,
-  workspaces,
-} from "@/lib/db/schema";
+import { mcpTokens, users, workspaces } from "@/lib/db/schema";
 import { seedWorkspace } from "@/lib/db/seed";
-import { isEmail, parseDollars, text, todayISO } from "@/lib/format";
-import { deliverMail, mailDeliveryFor } from "@/lib/mail";
+import { isEmail, text } from "@/lib/format";
+import * as book from "@/lib/book";
 import { isRecordId } from "@/lib/ids";
 import { isLocalRepo } from "@/lib/runtime";
-import { ONBOARDING_STEPS } from "@/lib/pipelines";
 import { requireWorkspace } from "@/lib/session";
 import type { PipelineKind, Plan } from "@/lib/types";
 
 function refresh() {
   revalidatePath("/", "layout");
-}
-
-function idOf(value: FormDataEntryValue | null) {
-  const id = text(value);
-  return isRecordId(id) ? id : "";
 }
 
 function optionalId(value: FormDataEntryValue | null) {
@@ -134,254 +114,71 @@ export async function logout() {
 
 export async function createPerson(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const name = text(formData.get("name"));
-  const email = text(formData.get("email")).toLowerCase();
-  if (!name) return;
-
-  const [person] = await db
-    .insert(people)
-    .values({
-      workspaceId: workspace.id,
-      name,
-      email: email || null,
-    })
-    .returning({ id: people.id });
-
-  if (person) {
-    await db.insert(activities).values({
-      workspaceId: workspace.id,
-      personId: person.id,
-      kind: "created",
-      body: "Added to the book.",
-    });
-  }
-
+  const result = await book.createPerson(workspace.id, {
+    name: text(formData.get("name")),
+    email: text(formData.get("email")),
+  });
+  if (!result.ok) return;
   refresh();
-  if (text(formData.get("return")) === "record" && person) redirect(`/people/${person.id}`);
+  if (text(formData.get("return")) === "record") redirect(`/people/${result.data.id}`);
 }
 
 export async function createOrganization(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const name = text(formData.get("name"));
-  const domain = text(formData.get("domain"));
-  if (!name) return;
-
-  const [organization] = await db
-    .insert(organizations)
-    .values({
-      workspaceId: workspace.id,
-      name,
-      domain: domain || null,
-    })
-    .returning({ id: organizations.id });
-
-  if (organization) {
-    await db.insert(activities).values({
-      workspaceId: workspace.id,
-      organizationId: organization.id,
-      kind: "created",
-      body: "Added to the book.",
-    });
-  }
-
+  const result = await book.createOrganization(workspace.id, {
+    name: text(formData.get("name")),
+    domain: text(formData.get("domain")),
+  });
+  if (!result.ok) return;
   refresh();
-  if (text(formData.get("return")) === "record" && organization) {
-    redirect(`/organizations/${organization.id}`);
-  }
+  if (text(formData.get("return")) === "record") redirect(`/organizations/${result.data.id}`);
 }
 
 export async function updatePerson(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  const name = text(formData.get("name"));
-  if (!id || !name) return;
   const organizationId = optionalId(formData.get("organizationId"));
   if (organizationId === undefined) return;
-
-  await db
-    .update(people)
-    .set({
-      name,
-      email: text(formData.get("email")).toLowerCase() || null,
-      phone: text(formData.get("phone")) || null,
-      title: text(formData.get("title")) || null,
-      organizationId: organizationId || null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(people.id, id), eq(people.workspaceId, workspace.id)));
-
+  const result = await book.updatePerson(workspace.id, {
+    id: text(formData.get("id")),
+    name: text(formData.get("name")),
+    email: text(formData.get("email")),
+    phone: text(formData.get("phone")),
+    title: text(formData.get("title")),
+    organizationId,
+  });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function updateOrganization(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  const name = text(formData.get("name"));
-  if (!id || !name) return;
-
-  await db
-    .update(organizations)
-    .set({
-      name,
-      domain: text(formData.get("domain")) || null,
-      industry: text(formData.get("industry")) || null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(organizations.id, id), eq(organizations.workspaceId, workspace.id)));
-
+  const result = await book.updateOrganization(workspace.id, {
+    id: text(formData.get("id")),
+    name: text(formData.get("name")),
+    domain: text(formData.get("domain")),
+    industry: text(formData.get("industry")),
+  });
+  if (!result.ok) return;
   refresh();
-}
-
-async function findOrCreateOrganization(workspaceId: string, name: string) {
-  const [existing] = await db
-    .select()
-    .from(organizations)
-    .where(
-      and(
-        eq(organizations.workspaceId, workspaceId),
-        sql`lower(${organizations.name}) = ${name.toLowerCase()}`,
-      ),
-    );
-  if (existing) return existing;
-
-  const [created] = await db
-    .insert(organizations)
-    .values({ workspaceId, name })
-    .returning();
-  if (!created) throw new Error("Could not add the organization.");
-  await db.insert(activities).values({
-    workspaceId,
-    organizationId: created.id,
-    kind: "created",
-    body: "Added to the book.",
-  });
-  return created;
-}
-
-async function findOrCreatePerson(workspaceId: string, name: string, organizationId: string) {
-  const [existing] = await db
-    .select()
-    .from(people)
-    .where(
-      and(
-        eq(people.workspaceId, workspaceId),
-        sql`lower(${people.name}) = ${name.toLowerCase()}`,
-      ),
-    );
-  if (existing) {
-    if (!existing.organizationId) {
-      await db
-        .update(people)
-        .set({ organizationId, updatedAt: new Date() })
-        .where(eq(people.id, existing.id));
-    }
-    return existing.id;
-  }
-
-  const [created] = await db
-    .insert(people)
-    .values({ workspaceId, name, organizationId })
-    .returning({ id: people.id });
-  if (!created) throw new Error("Could not add the person.");
-  await db.insert(activities).values({
-    workspaceId,
-    personId: created.id,
-    organizationId,
-    kind: "created",
-    body: "Added to the book.",
-  });
-  return created.id;
 }
 
 export async function createCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const stageId = idOf(formData.get("stageId"));
-  const organizationName = text(formData.get("organization"));
-  const personName = text(formData.get("person"));
-  if (!stageId || !organizationName) return;
-
-  const [stage] = await db
-    .select({ stage: stages, pipeline: pipelines })
-    .from(stages)
-    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
-  if (!stage) return;
-
-  const organization = await findOrCreateOrganization(workspace.id, organizationName);
-  const personId = personName
-    ? await findOrCreatePerson(workspace.id, personName, organization.id)
-    : null;
-  const title = text(formData.get("title")) || organizationName;
-  const valueCents = stage.pipeline.kind === "sales" ? parseDollars(text(formData.get("value"))) : null;
-
-  const [card] = await db
-    .insert(cards)
-    .values({
-      workspaceId: workspace.id,
-      pipelineId: stage.pipeline.id,
-      stageId: stage.stage.id,
-      organizationId: organization.id,
-      personId,
-      title,
-      valueCents,
-    })
-    .returning({ id: cards.id });
-  if (!card) return;
-
-  if (stage.pipeline.kind === "onboarding") {
-    await db.insert(checklistItems).values(
-      ONBOARDING_STEPS.map((label, position) => ({
-        cardId: card.id,
-        label,
-        done: false,
-        position,
-      })),
-    );
-  }
-
-  await db.insert(activities).values({
-    workspaceId: workspace.id,
-    cardId: card.id,
-    personId,
-    organizationId: organization.id,
-    kind: "created",
-    body: "Opened the card.",
+  const result = await book.createCard(workspace.id, {
+    stageId: text(formData.get("stageId")),
+    organization: text(formData.get("organization")),
+    person: text(formData.get("person")),
+    title: text(formData.get("title")),
+    value: text(formData.get("value")),
   });
-
+  if (!result.ok) return;
   refresh();
 }
 
 export async function moveCard(cardId: string, stageId: string) {
-  if (!isRecordId(cardId) || !isRecordId(stageId)) return;
   const { workspace } = await requireWorkspace();
-  const [card] = await db
-    .select()
-    .from(cards)
-    .where(and(eq(cards.id, cardId), eq(cards.workspaceId, workspace.id)));
-  const [nextStage] = await db
-    .select()
-    .from(stages)
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
-  if (!card || !nextStage || nextStage.pipelineId !== card.pipelineId || card.stageId === nextStage.id) {
-    return;
-  }
-
-  const [previous] = await db.select().from(stages).where(eq(stages.id, card.stageId));
-
-  await db
-    .update(cards)
-    .set({ stageId: nextStage.id, updatedAt: new Date() })
-    .where(eq(cards.id, card.id));
-
-  await db.insert(activities).values({
-    workspaceId: workspace.id,
-    cardId: card.id,
-    personId: card.personId,
-    organizationId: card.organizationId,
-    kind: "stage_change",
-    body: `Moved from ${previous?.name ?? "the last stage"} to ${nextStage.name}.`,
-  });
-
+  const result = await book.moveCard(workspace.id, cardId, stageId);
+  if (!result.ok) return;
   refresh();
 }
 
@@ -393,390 +190,144 @@ export async function addStage(formData: FormData) {
   const { workspace } = await requireWorkspace();
   const kind = boardKind(text(formData.get("kind")));
   const view = text(formData.get("view"));
-  const name = text(formData.get("name")).slice(0, 40);
+  const name = text(formData.get("name"));
   if (!kind) return;
-  if (!name) redirect(boardHref(kind, view));
+  if (!name.trim()) redirect(boardHref(kind, view));
 
-  const [pipeline] = await db
-    .select()
-    .from(pipelines)
-    .where(and(eq(pipelines.workspaceId, workspace.id), eq(pipelines.kind, kind)));
-  if (!pipeline) return;
-
-  const existing = await db
-    .select()
-    .from(stages)
-    .where(eq(stages.pipelineId, pipeline.id))
-    .orderBy(asc(stages.position));
-  const closing = existing.find((stage) => stage.kind !== "open");
-  const position = closing ? closing.position : existing.length;
-
-  await db.transaction(async (tx) => {
-    const later = existing.filter((stage) => stage.position >= position).sort((a, b) => b.position - a.position);
-    for (const stage of later) {
-      await tx.update(stages).set({ position: stage.position + 1 }).where(eq(stages.id, stage.id));
-    }
-    await tx.insert(stages).values({
-      workspaceId: workspace.id,
-      pipelineId: pipeline.id,
-      name,
-      position,
-      kind: "open",
-    });
-  });
-
+  const result = await book.addStage(workspace.id, { kind, name });
+  if (!result.ok) return;
   refresh();
   redirect(boardHref(kind, view));
 }
 
 export async function deleteStage(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const stageId = idOf(formData.get("stageId"));
+  const stageId = text(formData.get("stageId"));
   const view = text(formData.get("view"));
   if (!stageId) return;
 
-  const [row] = await db
-    .select({ stage: stages, kind: pipelines.kind })
-    .from(stages)
-    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
-  if (!row) return;
-
-  const href = boardHref(row.kind, view);
-  const siblings = await db
-    .select()
-    .from(stages)
-    .where(eq(stages.pipelineId, row.stage.pipelineId))
-    .orderBy(asc(stages.position));
-  if (siblings.length <= 1) redirect(boardHref(row.kind, view, "last"));
-
-  const [occupied] = await db
-    .select({ id: cards.id })
-    .from(cards)
-    .where(eq(cards.stageId, row.stage.id))
-    .limit(1);
-  if (occupied) redirect(boardHref(row.kind, view, "full"));
-
-  const remaining = siblings.filter((stage) => stage.id !== row.stage.id);
-  try {
-    await db.transaction(async (tx) => {
-      await tx.delete(stages).where(and(eq(stages.id, row.stage.id), eq(stages.workspaceId, workspace.id)));
-      for (const [index, stage] of remaining.entries()) {
-        if (stage.position !== index) {
-          await tx.update(stages).set({ position: index }).where(eq(stages.id, stage.id));
-        }
-      }
-    });
-  } catch (error) {
-    if (hasDbCode(error, "23503")) redirect(boardHref(row.kind, view, "full"));
-    throw error;
+  const result = await book.deleteStage(workspace.id, stageId);
+  if (!result.ok) {
+    if (result.kind && (result.code === "last" || result.code === "full")) {
+      redirect(boardHref(result.kind, view, result.code));
+    }
+    return;
   }
-
   refresh();
-  redirect(href);
+  redirect(boardHref(result.data.kind, view));
 }
 
 export async function moveStage(stageId: string, direction: "left" | "right") {
-  if (!isRecordId(stageId) || (direction !== "left" && direction !== "right")) return;
   const { workspace } = await requireWorkspace();
-
-  const [row] = await db
-    .select({ stage: stages })
-    .from(stages)
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
-  if (!row) return;
-
-  const siblings = await db
-    .select()
-    .from(stages)
-    .where(eq(stages.pipelineId, row.stage.pipelineId))
-    .orderBy(asc(stages.position));
-  const index = siblings.findIndex((stage) => stage.id === row.stage.id);
-  const neighbor = siblings[direction === "left" ? index - 1 : index + 1];
-  if (!neighbor) return;
-
-  await db.transaction(async (tx) => {
-    await tx.update(stages).set({ position: neighbor.position }).where(eq(stages.id, row.stage.id));
-    await tx.update(stages).set({ position: row.stage.position }).where(eq(stages.id, neighbor.id));
-  });
-
+  const result = await book.moveStage(workspace.id, stageId, direction);
+  if (!result.ok) return;
   refresh();
 }
 
 export async function renameStage(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const stageId = idOf(formData.get("stageId"));
   const view = text(formData.get("view"));
-  const name = text(formData.get("name")).slice(0, 40);
-  if (!stageId || !name) return;
-
-  const [row] = await db
-    .select({ stage: stages, kind: pipelines.kind })
-    .from(stages)
-    .innerJoin(pipelines, eq(stages.pipelineId, pipelines.id))
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, workspace.id)));
-  if (!row) return;
-
-  await db.update(stages).set({ name }).where(eq(stages.id, row.stage.id));
+  const result = await book.renameStage(workspace.id, {
+    stageId: text(formData.get("stageId")),
+    name: text(formData.get("name")),
+  });
+  if (!result.ok) return;
   refresh();
-  redirect(boardHref(row.kind, view));
+  redirect(boardHref(result.data.kind, view));
 }
 
 export async function editCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  const title = text(formData.get("title")).slice(0, 120);
-  if (!id || !title) return;
-
-  const [card] = await db
-    .select({ card: cards, kind: pipelines.kind })
-    .from(cards)
-    .innerJoin(pipelines, eq(cards.pipelineId, pipelines.id))
-    .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
-  if (!card) return;
-
-  await db
-    .update(cards)
-    .set({
-      title,
-      valueCents: card.kind === "sales" ? parseDollars(text(formData.get("value"))) : card.card.valueCents,
-      updatedAt: new Date(),
-    })
-    .where(eq(cards.id, id));
-
+  const result = await book.updateCard(workspace.id, {
+    id: text(formData.get("id")),
+    title: text(formData.get("title")),
+    value: text(formData.get("value")),
+  });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function saveComment(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  if (!id) return;
-  const comment = String(formData.get("comment") ?? "").replace(/\r\n/g, "\n").trim();
-
-  const [card] = await db
-    .select({ id: cards.id })
-    .from(cards)
-    .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
-  if (!card) return;
-
-  await db
-    .update(cards)
-    .set({ comment: comment || null, updatedAt: new Date() })
-    .where(eq(cards.id, id));
-
+  const result = await book.saveComment(workspace.id, {
+    id: text(formData.get("id")),
+    comment: String(formData.get("comment") ?? ""),
+  });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function deleteCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  if (!id) return;
-
-  await db.delete(cards).where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
+  const result = await book.deleteCard(workspace.id, text(formData.get("id")));
+  if (!result.ok) return;
   refresh();
 }
 
 export async function updateCard(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const id = idOf(formData.get("id"));
-  const title = text(formData.get("title"));
-  if (!id || !title) return;
-
-  const [card] = await db
-    .select({ card: cards, kind: pipelines.kind })
-    .from(cards)
-    .innerJoin(pipelines, eq(cards.pipelineId, pipelines.id))
-    .where(and(eq(cards.id, id), eq(cards.workspaceId, workspace.id)));
-  if (!card) return;
-
   const personId = optionalId(formData.get("personId"));
   if (personId === undefined) return;
-  await db
-    .update(cards)
-    .set({
-      title,
-      personId: personId || null,
-      valueCents: card.kind === "sales" ? parseDollars(text(formData.get("value"))) : card.card.valueCents,
-      updatedAt: new Date(),
-    })
-    .where(eq(cards.id, id));
-
+  const result = await book.updateCard(workspace.id, {
+    id: text(formData.get("id")),
+    title: text(formData.get("title")),
+    personId,
+    value: text(formData.get("value")),
+  });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function addNote(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const body = text(formData.get("body"));
-  if (!body) return;
-
   const cardId = optionalId(formData.get("cardId"));
   const personId = optionalId(formData.get("personId"));
   const organizationId = optionalId(formData.get("organizationId"));
   if (cardId === undefined || personId === undefined || organizationId === undefined) return;
 
-  let resolvedPerson = personId || null;
-  let resolvedOrg = organizationId || null;
-  let resolvedCard = cardId || null;
-
-  if (cardId) {
-    const [card] = await db
-      .select()
-      .from(cards)
-      .where(and(eq(cards.id, cardId), eq(cards.workspaceId, workspace.id)));
-    if (!card) return;
-    resolvedPerson = card.personId;
-    resolvedOrg = card.organizationId;
-    resolvedCard = card.id;
-  } else if (personId) {
-    const [person] = await db
-      .select()
-      .from(people)
-      .where(and(eq(people.id, personId), eq(people.workspaceId, workspace.id)));
-    if (!person) return;
-    resolvedPerson = person.id;
-    resolvedOrg = person.organizationId;
-  } else if (organizationId) {
-    const [organization] = await db
-      .select()
-      .from(organizations)
-      .where(and(eq(organizations.id, organizationId), eq(organizations.workspaceId, workspace.id)));
-    if (!organization) return;
-    resolvedOrg = organization.id;
-  } else {
-    return;
-  }
-
-  await db.insert(activities).values({
-    workspaceId: workspace.id,
-    cardId: resolvedCard,
-    personId: resolvedPerson,
-    organizationId: resolvedOrg,
-    kind: "note",
-    body,
+  const result = await book.addNote(workspace.id, {
+    body: text(formData.get("body")),
+    cardId,
+    personId,
+    organizationId,
   });
-
+  if (!result.ok) return;
   refresh();
 }
 
 export async function saveNextAction(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const actionText = text(formData.get("text"));
-  const dueOn = text(formData.get("dueOn")) || todayISO();
-  if (!actionText) return;
-
   const actionId = optionalId(formData.get("actionId"));
   if (actionId === undefined) return;
-  if (actionId) {
-    await db
-      .update(nextActions)
-      .set({ text: actionText, dueOn, done: false })
-      .where(and(eq(nextActions.id, actionId), eq(nextActions.workspaceId, workspace.id)));
-    refresh();
-    return;
-  }
-
-  const cardId = optionalId(formData.get("cardId"));
-  const personId = optionalId(formData.get("personId"));
-  const organizationId = optionalId(formData.get("organizationId"));
+  const cardId = actionId ? null : optionalId(formData.get("cardId"));
+  const personId = actionId ? null : optionalId(formData.get("personId"));
+  const organizationId = actionId ? null : optionalId(formData.get("organizationId"));
   if (cardId === undefined || personId === undefined || organizationId === undefined) return;
 
-  if (cardId) {
-    const [card] = await db
-      .select()
-      .from(cards)
-      .where(and(eq(cards.id, cardId), eq(cards.workspaceId, workspace.id)));
-    if (!card) return;
-    await db.insert(nextActions).values({
-      workspaceId: workspace.id,
-      cardId: card.id,
-      personId: card.personId,
-      organizationId: card.organizationId,
-      text: actionText,
-      dueOn,
-    });
-  } else if (personId) {
-    const [person] = await db
-      .select()
-      .from(people)
-      .where(and(eq(people.id, personId), eq(people.workspaceId, workspace.id)));
-    if (!person) return;
-    await db.insert(nextActions).values({
-      workspaceId: workspace.id,
-      personId: person.id,
-      organizationId: person.organizationId,
-      text: actionText,
-      dueOn,
-    });
-  } else if (organizationId) {
-    const [organization] = await db
-      .select()
-      .from(organizations)
-      .where(and(eq(organizations.id, organizationId), eq(organizations.workspaceId, workspace.id)));
-    if (!organization) return;
-    await db.insert(nextActions).values({
-      workspaceId: workspace.id,
-      organizationId: organization.id,
-      text: actionText,
-      dueOn,
-    });
-  }
-
+  const result = await book.saveNextAction(workspace.id, {
+    text: text(formData.get("text")),
+    dueOn: text(formData.get("dueOn")),
+    actionId,
+    cardId,
+    personId,
+    organizationId,
+  });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function completeNextAction(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const actionId = idOf(formData.get("actionId"));
-  if (!actionId) return;
-
-  const [action] = await db
-    .select()
-    .from(nextActions)
-    .where(and(eq(nextActions.id, actionId), eq(nextActions.workspaceId, workspace.id), eq(nextActions.done, false)));
-  if (!action) return;
-
-  await db.update(nextActions).set({ done: true }).where(eq(nextActions.id, action.id));
-  await db.insert(activities).values({
-    workspaceId: workspace.id,
-    cardId: action.cardId,
-    personId: action.personId,
-    organizationId: action.organizationId,
-    kind: "note",
-    body: `Finished: ${action.text}`,
-  });
+  const result = await book.completeNextAction(workspace.id, text(formData.get("actionId")));
+  if (!result.ok) return;
   refresh();
 }
 
 export async function toggleChecklist(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const itemId = idOf(formData.get("itemId"));
-  if (!itemId) return;
-
-  const [item] = await db
-    .select({ item: checklistItems, card: cards })
-    .from(checklistItems)
-    .innerJoin(cards, eq(checklistItems.cardId, cards.id))
-    .where(and(eq(checklistItems.id, itemId), eq(cards.workspaceId, workspace.id)));
-  if (!item) return;
-
-  const done = !item.item.done;
-  await db.update(checklistItems).set({ done }).where(eq(checklistItems.id, item.item.id));
-  await db.insert(activities).values({
-    workspaceId: workspace.id,
-    cardId: item.card.id,
-    personId: item.card.personId,
-    organizationId: item.card.organizationId,
-    kind: "note",
-    body: done ? `Checked “${item.item.label}”.` : `Cleared “${item.item.label}”.`,
-  });
-  await db.update(cards).set({ updatedAt: new Date() }).where(eq(cards.id, item.card.id));
+  const result = await book.toggleChecklist(workspace.id, text(formData.get("itemId")));
+  if (!result.ok) return;
   refresh();
-}
-
-function delayDays(value: FormDataEntryValue | null) {
-  const parsed = Number.parseInt(text(value), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return Math.min(parsed, 90);
 }
 
 async function proWorkspace() {
@@ -785,50 +336,38 @@ async function proWorkspace() {
   return session;
 }
 
-function mailFrom(raw: string) {
-  const angle = raw.match(/<([^>]+)>/);
-  const email = (angle?.[1] ?? raw).trim();
-  if (!isEmail(email)) return null;
-  return raw.trim();
+export async function mintMcpToken() {
+  const session = await proWorkspace();
+  if (!session) return;
+  const token = `ml_${randomBytes(32).toString("hex")}`;
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  await db
+    .insert(mcpTokens)
+    .values({
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      tokenHash,
+    })
+    .onConflictDoUpdate({
+      target: mcpTokens.workspaceId,
+      set: { userId: session.user.id, tokenHash, createdAt: new Date() },
+    });
+  refresh();
+  redirect(`/mcp?issued=${token}`);
 }
 
 export async function saveMailAccount(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
-  const host = text(formData.get("host"));
-  const fromAddress = mailFrom(text(formData.get("fromAddress")));
-  const username = text(formData.get("username"));
-  const password = String(formData.get("password") ?? "");
   const port = Number.parseInt(text(formData.get("port")), 10);
-  if (!host || !fromAddress || !Number.isInteger(port) || port < 1 || port > 65535) return;
-
-  const [existing] = await db
-    .select({ password: mailAccounts.password })
-    .from(mailAccounts)
-    .where(eq(mailAccounts.workspaceId, session.workspace.id));
-
-  await db
-    .insert(mailAccounts)
-    .values({
-      workspaceId: session.workspace.id,
-      host,
-      port,
-      username: username || null,
-      password: password || existing?.password || "",
-      fromAddress,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: mailAccounts.workspaceId,
-      set: {
-        host,
-        port,
-        username: username || null,
-        password: password || existing?.password || "",
-        fromAddress,
-        updatedAt: new Date(),
-      },
-    });
+  const result = await book.saveMailHost(session.workspace.id, {
+    host: text(formData.get("host")),
+    port,
+    username: text(formData.get("username")),
+    password: String(formData.get("password") ?? ""),
+    fromAddress: text(formData.get("fromAddress")),
+  });
+  if (!result.ok) return;
   refresh();
   redirect("/mail");
 }
@@ -836,37 +375,16 @@ export async function saveMailAccount(formData: FormData) {
 export async function sendMail(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
-  const to = text(formData.get("to")).toLowerCase();
-  const subject = text(formData.get("subject"));
-  const body = text(formData.get("body"));
-  if (!isEmail(to) || !subject || !body) return;
-
-  const account = await mailDeliveryFor(session.workspace.id);
-  if (!account) redirect("/mail");
-
-  let delivered = false;
-  try {
-    delivered = await deliverMail(session.workspace.id, { to, subject, text: body });
-  } catch {
-    delivered = false;
-  }
-  if (!delivered) redirect("/mail?box=write&error=host");
-
-  const [person] = await db
-    .select({ id: people.id })
-    .from(people)
-    .where(and(eq(people.workspaceId, session.workspace.id), sql`lower(${people.email}) = ${to}`));
-
-  await db.insert(messages).values({
-    workspaceId: session.workspace.id,
-    direction: "out",
-    fromAddress: account.fromAddress,
-    toAddress: to,
-    subject,
-    body,
-    personId: person?.id ?? null,
-    delivered: true,
+  const result = await book.sendLetter(session.workspace.id, {
+    to: text(formData.get("to")),
+    subject: text(formData.get("subject")),
+    body: text(formData.get("body")),
   });
+  if (!result.ok) {
+    if (result.code === "host") redirect("/mail");
+    if (result.code === "refused") redirect("/mail?box=write&error=host");
+    return;
+  }
   refresh();
   redirect("/mail?box=sent");
 }
@@ -874,66 +392,42 @@ export async function sendMail(formData: FormData) {
 export async function createStageAutomation(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
-  const name = text(formData.get("name"));
-  const subject = text(formData.get("subject"));
-  const body = text(formData.get("body"));
-  const stageId = idOf(formData.get("stageId"));
-  if (!name || !subject || !body || !stageId) return;
-
-  const [stage] = await db
-    .select({ id: stages.id })
-    .from(stages)
-    .where(and(eq(stages.id, stageId), eq(stages.workspaceId, session.workspace.id)));
-  if (!stage) return;
-
-  await db.insert(automations).values({
-    workspaceId: session.workspace.id,
-    name,
-    triggerKind: "stage",
-    stageId,
-    delayDays: delayDays(formData.get("delayDays")),
-    subject,
-    body,
+  const result = await book.createStageAutomation(session.workspace.id, {
+    name: text(formData.get("name")),
+    subject: text(formData.get("subject")),
+    body: text(formData.get("body")),
+    stageId: text(formData.get("stageId")),
+    delayDays: text(formData.get("delayDays")),
   });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function createWebhookAutomation(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
-  const name = text(formData.get("name"));
-  const subject = text(formData.get("subject"));
-  const body = text(formData.get("body"));
-  if (!name || !subject || !body) return;
-
-  await db.insert(automations).values({
-    workspaceId: session.workspace.id,
-    name,
-    triggerKind: "webhook",
-    delayDays: delayDays(formData.get("delayDays")),
-    subject,
-    body,
-    webhookToken: randomBytes(16).toString("hex"),
+  const result = await book.createWebhookAutomation(session.workspace.id, {
+    name: text(formData.get("name")),
+    subject: text(formData.get("subject")),
+    body: text(formData.get("body")),
+    delayDays: text(formData.get("delayDays")),
   });
+  if (!result.ok) return;
   refresh();
 }
 
 export async function deleteAutomation(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
-  const id = idOf(formData.get("id"));
-  if (!id) return;
-  await db
-    .delete(automations)
-    .where(and(eq(automations.id, id), eq(automations.workspaceId, session.workspace.id)));
+  const result = await book.deleteAutomation(session.workspace.id, text(formData.get("id")));
+  if (!result.ok) return;
   refresh();
 }
 
 export async function renameWorkspace(formData: FormData) {
   const { workspace } = await requireWorkspace();
-  const name = text(formData.get("name"));
-  if (!name) return;
-  await db.update(workspaces).set({ name }).where(eq(workspaces.id, workspace.id));
+  const result = await book.renameWorkspace(workspace.id, text(formData.get("name")));
+  if (!result.ok) return;
   refresh();
 }
 

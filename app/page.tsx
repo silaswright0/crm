@@ -39,10 +39,10 @@ export default async function Home({
       <section className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-6 py-10 sm:px-10">
         <div className="max-w-md">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">
-            This month beside last month. And the deals that went quiet.
+            See the deal that stalled, before it goes cold.
           </p>
           <p className="mt-4 text-sm leading-6 text-muted">
-            A book for the people you are selling, and the ones you just won. Home counts the new deals. A deal goes quiet after seven still days.
+            This month sits beside last month. Open deals that have been still for seven days are listed with their stage and value.
           </p>
         </div>
         <div className="w-full max-w-sm border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033]">

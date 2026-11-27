@@ -1,8 +1,7 @@
 import Link from "next/link";
 
 export const publicFeatures = [
-  { slug: "home", label: "Home" },
-  { slug: "book", label: "Book" },
+  { slug: "crm", label: "CRM" },
   { slug: "mail", label: "Mail" },
   { slug: "automations", label: "Automations" },
   { slug: "mcp", label: "MCP" },

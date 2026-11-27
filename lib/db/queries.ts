@@ -7,6 +7,7 @@ import {
   messages,
   checklistItems,
   mailAccounts,
+  mcpTokens,
   nextActions,
   organizations,
   people,
@@ -165,6 +166,14 @@ export async function listOrganizations(workspaceId: string) {
     peopleCount: peopleCount.get(row.id) ?? 0,
     quiet: isQuietAfter([row.updatedAt, newestLetter(mail, emailsByOrg.get(row.id) ?? [])]),
   }));
+}
+
+export async function getMcpToken(workspaceId: string) {
+  const [row] = await db
+    .select({ createdAt: mcpTokens.createdAt })
+    .from(mcpTokens)
+    .where(eq(mcpTokens.workspaceId, workspaceId));
+  return row ?? null;
 }
 
 export async function getMailAccount(workspaceId: string) {

@@ -20,7 +20,7 @@ export function DeskGate({
         <div className="mb-6 border-l-4 border-steady pl-4">
           <p className="font-mono text-[11px] text-steady">Pro</p>
           <p className="mt-1 max-w-2xl text-sm leading-6">
-            Pro is on for this book. Rules can be saved. Mail leaves once a host is saved. The MCP server is not answering yet.
+            Pro is on for this book. Rules can be saved. Mail leaves once a host is saved. The MCP server answers with a token from this book.
           </p>
         </div>
       )}
