@@ -41,9 +41,6 @@ export default async function Home({
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">
             See the deal that stalled, before it goes cold.
           </p>
-          <p className="mt-4 text-sm leading-6 text-muted">
-            This month sits beside last month. Open deals that have been still for seven days are listed with their stage and value.
-          </p>
         </div>
         <div className="w-full max-w-sm border-2 border-sign bg-paper p-5 shadow-[7px_7px_0_#102033]">
           <div className="flex gap-5 text-sm">
