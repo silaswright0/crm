@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
 import { PublicNav, publicFeatures, type FeatureSlug } from "@/components/public-nav";
 import { buttonClass } from "@/components/ui";
+import { db } from "@/lib/db";
+import { workspaces } from "@/lib/db/schema";
+
+export const dynamic = "force-dynamic";
+
+const premium = new Set<FeatureSlug>(["mail", "automations", "mcp"]);
 
 const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> = {
   crm: {
@@ -42,10 +50,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${feature.title} · MusterLog`, description: feature.lede };
 }
 
+async function onProPlan() {
+  const session = await auth();
+  const workspaceId = session?.user?.workspaceId;
+  if (!workspaceId) return false;
+  const [workspace] = await db
+    .select({ plan: workspaces.plan })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  return workspace?.plan === "pro";
+}
+
 export default async function FeaturePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!isFeatureSlug(slug)) notFound();
   const feature = copy[slug];
+  const showPro = premium.has(slug) && !(await onProPlan());
 
   return (
     <main className="flex min-h-dvh flex-col bg-paper">
@@ -64,6 +84,11 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
         <div className="max-w-lg">
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">{feature.lede}</p>
           <p className="mt-4 text-sm leading-6 text-muted">{feature.body}</p>
+          {showPro ? (
+            <p className="mt-4 border-l-4 border-lacquer pl-4 text-sm leading-6">
+              This is a premium feature and requires a Pro plan.
+            </p>
+          ) : null}
         </div>
         <Link href="/" className={`${buttonClass} inline-block`}>
           Log in

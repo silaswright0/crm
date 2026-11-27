@@ -99,11 +99,6 @@ export default async function SettingsPage() {
               );
             })}
           </div>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            {local
-              ? "The shaded plan is the other tier. Choosing it switches this book."
-              : "The shaded plan is the other tier. Choosing it opens checkout once a card can be taken."}
-          </p>
         </section>
         <section>
           <h2 className="font-sign text-2xl tracking-[-0.03em]">Keeper</h2>
