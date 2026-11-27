@@ -3,53 +3,27 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicNav, publicFeatures, type FeatureSlug } from "@/components/public-nav";
 import { buttonClass } from "@/components/ui";
-import { automationExamples } from "@/lib/desk";
 
-const copy: Record<FeatureSlug, { title: string; lede: string; body: string; points: [string, string][] }> = {
+const copy: Record<FeatureSlug, { title: string; lede: string; body: string }> = {
   crm: {
     title: "CRM",
     lede: "See the deal that stalled, before it goes cold.",
-    body: "A pipeline only helps if a stuck deal is obvious. Home sets this month beside last month, then lists the open deals that have been still for seven days. The person, the company, and the card stay on one book. You move the card when the conversation moves.",
-    points: [
-      ["Quiet deals", "Seven days with no update, and no letter the server accepted. The deal is listed, with its stage and value."],
-      ["This month", "New deals and what they are worth, next to last month."],
-      ["People", "Name, email, last touch, and the organization they belong to."],
-      ["Two boards", "The sale, then the work after the yes. Add, rename, or remove the open columns."],
-      ["The card", "A comment, a value, a next step, and the stage it is on."],
-    ],
+    body: "A pipeline only helps if a stuck deal is obvious. Use MusterLog to manage leads by categorizing into stages and documenting next steps. MusterLog will track when the deal moves forward and remind you when it doesn't.",
   },
   mail: {
     title: "Mail",
     lede: "Write the follow-up where the deal already lives.",
-    body: "Other inboxes keep the letter away from the card. Here you write to someone on the book. The page is the host setup until a server is saved, so a draft cannot look like it was sent. Sent means that server accepted the letter. That is the touch that clears Quiet.",
-    points: [
-      ["On the card", "The person and their address are already in the book."],
-      ["Host first", "Inbox, Sent, and Write open after the host, port, and from-address are saved."],
-      ["Accepted", "The letter is stored in Sent only when the mail server takes it."],
-      ["Clears Quiet", "A letter that left resets the seven quiet days on that person and their open deal."],
-    ],
+    body: "Manage your leads and mail from one spot. MusterLog will keep track of your recent communication, and enable you to respond to clients from the same place you manage them.",
   },
   automations: {
     title: "Automations",
-    lede: "The follow-up leaves when the card reaches the stage.",
-    body: "A first conversation and a yes both need a letter, and both are easy to forget. One rule holds one letter. It sends when a card enters a stage, that day or a few days later. A form on your site can send the same way, to the address in the call.",
-    points: [
-      ["Stage", "Talking, Welcome, or any column you keep. The letter leaves when the card arrives."],
-      ["Wait", "The same day, or as many as ninety days later."],
-      ["Webhook", "Your site calls the book and names who to write."],
-      ["One letter", "One subject, one body. Every rule stays visible on the desk."],
-    ],
+    lede: "Automate email campaigns based on deal stages and webhooks.",
+    body: "MusterLog allows for greater hands-free sales and CRM management. Configure automated emails for sales or onboarding when deals move to the next step, or further customize these automations with webhooks.",
   },
   mcp: {
     title: "MCP",
-    lede: "Ask an assistant to run this book while you stay in the work.",
-    body: "The assistant can find a person, move a deal, write the note, save a mail host, send a letter, and set a follow-up rule. It stays in this workspace. A letter is stored only after the mail server accepts it.",
-    points: [
-      ["People and companies", "Find them, add one, or change how you reach them."],
-      ["Deals", "Open a card, move it, change the value, or take it off the board."],
-      ["Mail", "Save the host, read Sent and Inbox, and send a letter."],
-      ["Automations", "Save a stage rule or a webhook rule, or remove one."],
-    ],
+    lede: "Ask an assistant to manage deals, mail, and automations.",
+    body: "MusterLog provides an MCP server that lets an AI agent work in the same book you use. It can move a deal, record the next step, reply to a client, and much more.",
   },
 };
 
@@ -91,25 +65,6 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
           <p className="font-sign text-[2rem] leading-[1.05] tracking-[-0.035em]">{feature.lede}</p>
           <p className="mt-4 text-sm leading-6 text-muted">{feature.body}</p>
         </div>
-        <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-          {feature.points.map(([name, detail]) => (
-            <li key={name} className="grid gap-1 py-4 sm:grid-cols-[10rem_1fr] sm:items-baseline">
-              <span className="font-sign text-2xl leading-none tracking-[-0.03em]">{name}</span>
-              <span className="text-sm leading-6 text-muted">{detail}</span>
-            </li>
-          ))}
-        </ul>
-        {slug === "automations" ? (
-          <ul className="w-full max-w-xl divide-y divide-line border-y border-line">
-            {automationExamples.map((example) => (
-              <li key={example.name} className="py-4">
-                <p className="font-sign text-2xl leading-none tracking-[-0.03em]">{example.name}</p>
-                <p className="mt-2 text-sm">{example.when}</p>
-                <p className="mt-1 text-sm text-muted">{example.then}</p>
-              </li>
-            ))}
-          </ul>
-        ) : null}
         <Link href="/" className={`${buttonClass} inline-block`}>
           Log in
         </Link>
