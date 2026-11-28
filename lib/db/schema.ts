@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -157,10 +158,30 @@ export const automations = pgTable("automations", {
   name: text("name").notNull(),
   triggerKind: automationTriggerEnum("trigger_kind").notNull(),
   stageId: uuid("stage_id").references(() => stages.id, { onDelete: "set null" }),
-  delayDays: integer("delay_days").notNull().default(0),
+  delayHours: integer("delay_hours").notNull().default(0),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   webhookToken: text("webhook_token").unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const scheduledSends = pgTable("scheduled_sends", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  automationId: uuid("automation_id")
+    .notNull()
+    .references(() => automations.id, { onDelete: "cascade" }),
+  toAddress: text("to_address").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  abandonedAt: timestamp("abandoned_at", { withTimezone: true }),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -172,6 +193,8 @@ export const mailAccounts = pgTable("mail_accounts", {
   port: integer("port").notNull().default(587),
   username: text("username"),
   password: text("password").notNull().default(""),
+  googleEmail: text("google_email"),
+  googleRefreshToken: text("google_refresh_token"),
   fromAddress: text("from_address").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -199,5 +222,6 @@ export const messages = pgTable("messages", {
   body: text("body").notNull(),
   personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
   delivered: boolean("delivered").notNull().default(false),
+  externalId: text("external_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [uniqueIndex("messages_workspace_external_id").on(table.workspaceId, table.externalId)]);

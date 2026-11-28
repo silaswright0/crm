@@ -101,7 +101,7 @@ async function handleOne(request: Request, message: RpcMessage, workspaceId: str
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "MusterLog", version: "0.1.0" },
         instructions:
-          "This token opens one workspace. send_mail sends immediately and stores the letter only after the mail server accepts it. Stage and webhook rules wait at most 90 days.",
+          "This token opens one workspace. send_mail sends immediately and stores the letter only after the mail server accepts it. Stage and webhook rules wait whole days and hours, up to 90 days, and due letters leave on the hour.",
       },
     });
   }

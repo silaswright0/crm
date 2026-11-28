@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { mcpTokens, users, workspaces } from "@/lib/db/schema";
 import { seedWorkspace } from "@/lib/db/seed";
 import { isEmail, text } from "@/lib/format";
+import { isMailProblem } from "@/lib/mail";
 import * as book from "@/lib/book";
 import { isRecordId } from "@/lib/ids";
 import { isLocalRepo } from "@/lib/runtime";
@@ -356,6 +357,14 @@ export async function mintMcpToken() {
   redirect(`/mcp?issued=${token}`);
 }
 
+export async function disconnectGoogleMail() {
+  const session = await proWorkspace();
+  if (!session) return;
+  await book.clearGoogleMail(session.workspace.id);
+  refresh();
+  redirect("/mail?box=config");
+}
+
 export async function saveMailAccount(formData: FormData) {
   const session = await proWorkspace();
   if (!session) return;
@@ -382,7 +391,7 @@ export async function sendMail(formData: FormData) {
   });
   if (!result.ok) {
     if (result.code === "host") redirect("/mail");
-    if (result.code === "refused") redirect("/mail?box=write&error=host");
+    if (result.code && isMailProblem(result.code)) redirect(`/mail?box=write&error=${result.code}`);
     return;
   }
   refresh();
@@ -398,8 +407,12 @@ export async function createStageAutomation(formData: FormData) {
     body: text(formData.get("body")),
     stageId: text(formData.get("stageId")),
     delayDays: text(formData.get("delayDays")),
+    delayHours: text(formData.get("delayHours")),
   });
-  if (!result.ok) return;
+  if (!result.ok) {
+    if (result.code === "delay") redirect("/automations?error=delay");
+    return;
+  }
   refresh();
 }
 
@@ -411,8 +424,13 @@ export async function createWebhookAutomation(formData: FormData) {
     subject: text(formData.get("subject")),
     body: text(formData.get("body")),
     delayDays: text(formData.get("delayDays")),
+    delayHours: text(formData.get("delayHours")),
   });
-  if (!result.ok) return;
+  if (!result.ok) {
+    if (result.code === "full") redirect("/automations?error=hooks");
+    if (result.code === "delay") redirect("/automations?error=delay");
+    return;
+  }
   refresh();
 }
 

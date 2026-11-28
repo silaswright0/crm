@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/queries";
 import { hookUrl } from "@/lib/desk";
 import { isRecordId } from "@/lib/ids";
-import { mailDeliveryFor } from "@/lib/mail";
+import { mailDeliveryFor, syncMailbox } from "@/lib/mail";
 import type { PipelineKind } from "@/lib/types";
 
 export class ToolError extends Error {
@@ -275,6 +275,7 @@ const handlers: Record<string, (workspaceId: string, args: Record<string, unknow
       username: saved ? (account?.username ?? null) : (delivery?.username ?? null),
       fromAddress: saved ? account?.fromAddress : (delivery?.fromAddress ?? null),
       hasPassword: account?.hasPassword ?? false,
+      googleEmail: account?.googleEmail ?? null,
     };
   },
   async save_mail_host(workspaceId, args) {
@@ -291,6 +292,7 @@ const handlers: Record<string, (workspaceId: string, args: Record<string, unknow
   async list_mail(workspaceId, args) {
     const box = args.box === "in" || args.box === "out" ? args.box : null;
     if (!box) throw new ToolError("Box is in or out.");
+    await syncMailbox(workspaceId);
     const rows = await listMessages(workspaceId, box);
     const letters = (box === "out" ? rows.filter((letter) => letter.delivered) : rows).slice(0, 40);
     return letters.map((letter) => ({
@@ -321,7 +323,8 @@ const handlers: Record<string, (workspaceId: string, args: Record<string, unknow
       triggerKind: rule.triggerKind,
       stageName: rule.stageName,
       pipelineName: rule.pipelineName,
-      delayDays: rule.delayDays,
+      delayDays: Math.floor(rule.delayHours / 24),
+      delayHours: rule.delayHours % 24,
       subject: rule.subject,
       body: rule.body,
       hookUrl: rule.webhookToken ? hookUrl(rule.webhookToken) : null,
@@ -335,6 +338,7 @@ const handlers: Record<string, (workspaceId: string, args: Record<string, unknow
         body: typeof args.body === "string" ? args.body : "",
         stageId: str(args, "stageId"),
         delayDays: args.delayDays,
+        delayHours: args.delayHours,
       }),
     );
   },
@@ -345,6 +349,7 @@ const handlers: Record<string, (workspaceId: string, args: Record<string, unknow
         subject: str(args, "subject"),
         body: typeof args.body === "string" ? args.body : "",
         delayDays: args.delayDays,
+        delayHours: args.delayHours,
       }),
     );
     return { id: created.id, hookUrl: hookUrl(created.webhookToken) };

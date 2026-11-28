@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { moveCardFromForm, saveComment, toggleChecklist, updateCard } from "@/lib/actions";
-import { money } from "@/lib/format";
-import { getCard } from "@/lib/db/queries";
+import { formatWhen, money } from "@/lib/format";
+import { getCard, listMessagesForAddress } from "@/lib/db/queries";
+import { shownMailProblem, syncMailbox } from "@/lib/mail";
 import { requireWorkspace } from "@/lib/session";
 import { NextPanel, RecordFrame, Timeline } from "@/components/record";
 import { buttonClass, fieldClass, ghostClass, labelClass } from "@/components/ui";
@@ -15,6 +16,10 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
 
   const { card } = record;
   const dollars = card.valueCents == null ? "" : String(card.valueCents / 100);
+  const paid = workspace.plan === "pro";
+  const mailbox = record.personEmail && paid ? await syncMailbox(workspace.id) : { ok: true as const };
+  const mailboxNote = mailbox.ok ? null : shownMailProblem(mailbox.problem);
+  const letters = record.personEmail ? await listMessagesForAddress(workspace.id, record.personEmail) : [];
 
   return (
     <RecordFrame
@@ -98,6 +103,39 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
       }
       timeline={
         <>
+          <section className="mb-8">
+            <h2 className="font-sign text-2xl">Mail</h2>
+            {record.personEmail ? (
+              <>
+                {mailboxNote ? (
+                  <p className="mt-3 text-sm leading-6 text-lacquer">
+                    <span className="font-medium">{mailboxNote.label}.</span> {mailboxNote.text}
+                  </p>
+                ) : null}
+                {letters.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted">No letters with {record.personEmail} yet.</p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-line border-y border-line">
+                    {letters.map((letter) => (
+                      <li key={letter.id}>
+                        <Link
+                          href={`/mail?box=${letter.direction === "out" ? "sent" : "inbox"}&letter=${letter.id}`}
+                          className="block py-3 hover:text-lacquer"
+                        >
+                          <span className="block text-sm">{letter.subject}</span>
+                          <span className="mt-1 block text-xs text-muted">
+                            {letter.direction === "out" ? `To ${letter.toAddress}` : letter.fromAddress} · {formatWhen(letter.createdAt)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-muted">Attach a person with an email to see their letters here.</p>
+            )}
+          </section>
           <form id="comments" action={saveComment} key={card.comment ?? ""} className="mb-8 scroll-mt-8 space-y-2">
             <input type="hidden" name="id" value={card.id} />
             <label className={labelClass} htmlFor="comment">

@@ -184,6 +184,7 @@ export async function getMailAccount(workspaceId: string) {
       username: mailAccounts.username,
       fromAddress: mailAccounts.fromAddress,
       hasPassword: sql<boolean>`${mailAccounts.password} <> ''`,
+      googleEmail: mailAccounts.googleEmail,
     })
     .from(mailAccounts)
     .where(eq(mailAccounts.workspaceId, workspaceId));
@@ -196,6 +197,33 @@ export async function listMessages(workspaceId: string, direction: "in" | "out")
     .from(messages)
     .where(and(eq(messages.workspaceId, workspaceId), eq(messages.direction, direction)))
     .orderBy(desc(messages.createdAt));
+}
+
+export async function listMessagesForAddress(workspaceId: string, email: string) {
+  const address = emailAddress(email);
+  if (!address) return [];
+  const like = `%${address}%`;
+  return db
+    .select({
+      id: messages.id,
+      direction: messages.direction,
+      fromAddress: messages.fromAddress,
+      toAddress: messages.toAddress,
+      subject: messages.subject,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.workspaceId, workspaceId),
+        or(
+          sql`lower(${messages.fromAddress}) like ${like}`,
+          sql`lower(${messages.toAddress}) like ${like}`,
+        ),
+      ),
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(12);
 }
 
 export async function listAutomationStages(workspaceId: string) {
@@ -219,7 +247,7 @@ export async function listAutomations(workspaceId: string) {
       triggerKind: automations.triggerKind,
       stageName: stages.name,
       pipelineName: pipelines.name,
-      delayDays: automations.delayDays,
+      delayHours: automations.delayHours,
       subject: automations.subject,
       body: automations.body,
       webhookToken: automations.webhookToken,

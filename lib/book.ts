@@ -17,14 +17,15 @@ import {
 } from "@/lib/db/schema";
 import { isEmail, parseDollars, todayISO } from "@/lib/format";
 import { isRecordId } from "@/lib/ids";
-import { deliverMail, mailDeliveryFor } from "@/lib/mail";
+import { deliverMail, mailDeliveryFor, mailProblems, type MailProblem } from "@/lib/mail";
+import { enqueueStageLetters } from "@/lib/schedule";
 import { ONBOARDING_STEPS } from "@/lib/pipelines";
 import type { PipelineKind } from "@/lib/types";
 
 export type BookErr = {
   ok: false;
   error: string;
-  code?: "missing" | "last" | "full" | "invalid" | "host" | "refused";
+  code?: "missing" | "last" | "full" | "invalid" | "delay" | "host" | MailProblem;
   kind?: PipelineKind;
 };
 
@@ -53,11 +54,34 @@ function recordId(value: string) {
   return isRecordId(value) ? value : "";
 }
 
-export function delayDays(value: unknown) {
-  const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? "0"), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return Math.min(Math.trunc(parsed), 90);
+const DAY_HOURS = 24;
+const MAX_WAIT_DAYS = 90;
+
+export function waitSpan(daysValue: unknown, hoursValue: unknown) {
+  const days = wholeNumber(daysValue, MAX_WAIT_DAYS);
+  const hours = wholeNumber(hoursValue, DAY_HOURS - 1);
+  if (days === null || hours === null) return null;
+  const total = days * DAY_HOURS + hours;
+  if (total > MAX_WAIT_DAYS * DAY_HOURS) return null;
+  return total;
 }
+
+function wholeNumber(value: unknown, max: number) {
+  if (value === null || value === undefined) return 0;
+  let parsed: number;
+  if (typeof value === "number") {
+    parsed = value;
+  } else {
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    if (!/^\d+$/.test(raw)) return null;
+    parsed = Number(raw);
+  }
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > max) return null;
+  return parsed;
+}
+
+const WAIT_ERROR = "Wait is whole days and hours, up to 90 days.";
 
 function mailFrom(raw: string) {
   const angle = raw.match(/<([^>]+)>/);
@@ -304,6 +328,7 @@ export async function moveCard(workspaceId: string, cardId: string, stageId: str
     kind: "stage_change",
     body: `Moved from ${previous?.name ?? "the last stage"} to ${nextStage.name}.`,
   });
+  await enqueueStageLetters(workspaceId, card.personId, nextStage.id);
   return ok({ id: card.id, stageId: nextStage.id, stageName: nextStage.name });
 }
 
@@ -708,6 +733,52 @@ export async function saveMailHost(
   return ok({ host, port, username: username || null, fromAddress });
 }
 
+export async function saveGoogleMail(workspaceId: string, input: { email: string; refreshToken: string }) {
+  const email = input.email.trim().toLowerCase();
+  if (!isEmail(email) || !input.refreshToken) return err("Google did not return a mailbox.", "invalid");
+
+  const [existing] = await db
+    .select({ fromAddress: mailAccounts.fromAddress, password: mailAccounts.password })
+    .from(mailAccounts)
+    .where(eq(mailAccounts.workspaceId, workspaceId));
+  const fromAddress = existing?.fromAddress || email;
+
+  await db
+    .insert(mailAccounts)
+    .values({
+      workspaceId,
+      host: "smtp.gmail.com",
+      port: 587,
+      username: email,
+      password: existing?.password ?? "",
+      fromAddress,
+      googleEmail: email,
+      googleRefreshToken: input.refreshToken,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: mailAccounts.workspaceId,
+      set: {
+        host: "smtp.gmail.com",
+        port: 587,
+        username: email,
+        fromAddress,
+        googleEmail: email,
+        googleRefreshToken: input.refreshToken,
+        updatedAt: new Date(),
+      },
+    });
+  return ok({ email });
+}
+
+export async function clearGoogleMail(workspaceId: string) {
+  await db
+    .update(mailAccounts)
+    .set({ googleEmail: null, googleRefreshToken: null, updatedAt: new Date() })
+    .where(eq(mailAccounts.workspaceId, workspaceId));
+  return ok({ cleared: true });
+}
+
 export async function sendLetter(workspaceId: string, input: { to: string; subject: string; body: string }) {
   const to = input.to.trim().toLowerCase();
   const subject = input.subject.trim();
@@ -717,11 +788,10 @@ export async function sendLetter(workspaceId: string, input: { to: string; subje
   const account = await mailDeliveryFor(workspaceId);
   if (!account) return err("Save a mail host before a letter can leave this book.", "host");
 
-  try {
-    const delivered = await deliverMail(workspaceId, { to, subject, text: body });
-    if (!delivered) return err("Save a mail host before a letter can leave this book.", "host");
-  } catch {
-    return err("The host refused the letter.", "refused");
+  const delivered = await deliverMail(workspaceId, { to, subject, text: body });
+  if (!delivered.ok) {
+    if (delivered.problem === "login") return err("Save a mail host before a letter can leave this book.", "host");
+    return err(mailProblems[delivered.problem].text, delivered.problem);
   }
 
   const [person] = await db
@@ -748,12 +818,14 @@ export async function sendLetter(workspaceId: string, input: { to: string; subje
 
 export async function createStageAutomation(
   workspaceId: string,
-  input: { name: string; subject: string; body: string; stageId: string; delayDays: unknown },
+  input: { name: string; subject: string; body: string; stageId: string; delayDays: unknown; delayHours: unknown },
 ) {
   const name = input.name.trim();
   const subject = input.subject.trim();
   const body = input.body.trim();
   const stageId = recordId(input.stageId);
+  const wait = waitSpan(input.delayDays, input.delayHours);
+  if (wait === null) return err(WAIT_ERROR, "delay");
   if (!name || !subject || !body || !stageId) return err("A name, a stage, a subject, and a letter are required.", "invalid");
 
   const [stage] = await db
@@ -769,7 +841,7 @@ export async function createStageAutomation(
       name,
       triggerKind: "stage",
       stageId,
-      delayDays: delayDays(input.delayDays),
+      delayHours: wait,
       subject,
       body,
     })
@@ -780,12 +852,20 @@ export async function createStageAutomation(
 
 export async function createWebhookAutomation(
   workspaceId: string,
-  input: { name: string; subject: string; body: string; delayDays: unknown },
+  input: { name: string; subject: string; body: string; delayDays: unknown; delayHours: unknown },
 ) {
   const name = input.name.trim();
   const subject = input.subject.trim();
   const body = input.body.trim();
+  const wait = waitSpan(input.delayDays, input.delayHours);
+  if (wait === null) return err(WAIT_ERROR, "delay");
   if (!name || !subject || !body) return err("A name, a subject, and a letter are required.", "invalid");
+
+  const [held] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(automations)
+    .where(and(eq(automations.workspaceId, workspaceId), eq(automations.triggerKind, "webhook")));
+  if ((held?.n ?? 0) >= 128) return err("Only 128 webhook automations per org.", "full");
 
   const webhookToken = randomBytes(16).toString("hex");
   const [rule] = await db
@@ -794,7 +874,7 @@ export async function createWebhookAutomation(
       workspaceId,
       name,
       triggerKind: "webhook",
-      delayDays: delayDays(input.delayDays),
+      delayHours: wait,
       subject,
       body,
       webhookToken,
